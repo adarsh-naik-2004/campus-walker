@@ -1,7 +1,7 @@
 // CreateInstitute.jsx
 import { useState } from 'react';
-import axios from 'axios';
 import { toast } from 'react-hot-toast';
+import api from '../../utils/api';
 
 export default function CreateInstitute({ universityId, setInstitutes }) {
   const [name, setName] = useState('');
@@ -12,8 +12,8 @@ export default function CreateInstitute({ universityId, setInstitutes }) {
     setLoading(true);
     
     try {
-      const { data } = await axios.post(
-        '/api/university/institutes',
+      const { data } = await api.post(
+        '/university/institutes',
         { name, universityId },
         { headers: { 'x-auth-token': localStorage.getItem('token') } }
       );

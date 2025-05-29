@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
-import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import AddLocation from "./AddLocation.jsx";
+import api from "../../utils/api.js";
 
 export default function InstituteAdminDashboard() {
   const [activeTab, setActiveTab] = useState("visitors");
@@ -31,20 +31,20 @@ export default function InstituteAdminDashboard() {
         const token = localStorage.getItem("token");
 
         // Fetch institute details with university info
-        const { data: instituteData } = await axios.get(
-          `/api/institute/${instituteId}`, // Matches backend route
+        const { data: instituteData } = await api.get(
+          `/institute/${instituteId}`, // Matches backend route
           { headers: { "x-auth-token": token } }
         );
 
         // Fetch institute-specific locations
-        const { data: locationsData } = await axios.get(
-          `/api/institute/${instituteId}/locations`,
+        const { data: locationsData } = await api.get(
+          `/institute/${instituteId}/locations`,
           { headers: { "x-auth-token": token } }
         );
 
         // Fetch institute-specific visitors
-        const { data: visitorsData } = await axios.get(
-          `/api/visitors/institute/${instituteId}`,
+        const { data: visitorsData } = await api.get(
+          `/visitors/institute/${instituteId}`,
           { headers: { "x-auth-token": token } }
         );
 
@@ -66,7 +66,7 @@ export default function InstituteAdminDashboard() {
 
   const handleDeleteLocation = async (locationId) => {
     try {
-      await axios.delete(`/api/institute/locations/${locationId}`, {
+      await api.delete(`/institute/locations/${locationId}`, {
         headers: {
           "x-auth-token": localStorage.getItem("token"),
         },
@@ -80,7 +80,7 @@ export default function InstituteAdminDashboard() {
 
   const handleDeleteVisitor = async (visitorId) => {
     try {
-      await axios.delete(`/api/visitors/${visitorId}`, {
+      await api.delete(`/visitors/${visitorId}`, {
         headers: {
           "x-auth-token": localStorage.getItem("token"),
         },

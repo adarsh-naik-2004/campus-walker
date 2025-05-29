@@ -1,6 +1,6 @@
 import { useState } from "react";
-import axios from "axios";
 import { toast } from "react-hot-toast";
+import api from "../../utils/api";
 
 export default function CreateSuperAdmin({ setSuperAdmins }) {
   const [formData, setFormData] = useState({
@@ -26,8 +26,8 @@ export default function CreateSuperAdmin({ setSuperAdmins }) {
     setLoading(true);
     try {
       const token = localStorage.getItem("token");
-      const { data } = await axios.post(
-        "/api/super-admin/super-admins",
+      const { data } = await api.post(
+        "/super-admin/super-admins",
         {
           email: formData.email,
           password: formData.password

@@ -1,6 +1,6 @@
 import { useState } from 'react'
-import axios from 'axios'
 import { toast } from 'react-hot-toast'
+import api from '../../utils/api'
 
 export default function AddLocation({ instituteId }) {
   const [formData, setFormData] = useState({
@@ -16,7 +16,7 @@ export default function AddLocation({ instituteId }) {
     setLoading(true)
     
     try {
-      const { data } = await axios.post('/api/institute/locations', 
+      const { data } = await api.post('/institute/locations', 
         {
           ...formData,
           instituteId,

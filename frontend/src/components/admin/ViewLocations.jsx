@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import axios from "axios";
 import { toast } from "react-hot-toast";
+import api from "../../utils/api.js";
 
 export default function ViewLocations({
   institutes,
@@ -23,8 +23,8 @@ export default function ViewLocations({
           setInstituteName(institute?.name || "");
           
           // Fetch locations
-          const { data } = await axios.get(
-            `/api/institute/${selectedInstitute}/locations`,
+          const { data } = await api.get(
+            `/institute/${selectedInstitute}/locations`,
             { headers: { "x-auth-token": token } }
           );
           setLocations(data);
@@ -42,7 +42,7 @@ export default function ViewLocations({
     if (window.confirm("Are you sure you want to delete this location?")) {
       try {
         const token = localStorage.getItem("token");
-        await axios.delete(`/api/institute/locations/${locationId}`, {
+        await api.delete(`/institute/locations/${locationId}`, {
           headers: { "x-auth-token": token }
         });
         setLocations(locations.filter(loc => loc._id !== locationId));

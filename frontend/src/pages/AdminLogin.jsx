@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import axios from "axios";
 import { toast } from "react-hot-toast";
+import api from "../utils/api";
 
 export default function AdminLogin() {
   const [credentials, setCredentials] = useState({
@@ -18,7 +18,7 @@ export default function AdminLogin() {
     setError("");
 
     try {
-      const { data } = await axios.post("/api/auth/login", credentials);
+      const { data } = await api.post("/auth/login", credentials);
 
       localStorage.setItem("token", data.token);
       localStorage.setItem("role", data.role);

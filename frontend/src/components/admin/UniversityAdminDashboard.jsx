@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
-import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import CreateInstitute from "./CreateInstitute.jsx";
 import ViewLocations from "./ViewLocations.jsx";
+import api from "../../utils/api.js";
 
 export default function UniversityAdminDashboard() {
   const [activeTab, setActiveTab] = useState("institutes");
@@ -32,18 +32,18 @@ export default function UniversityAdminDashboard() {
         setLoading(true);
         const token = localStorage.getItem("token");
 
-        const { data: universityData } = await axios.get(
-          `/api/university/${universityId}`,
+        const { data: universityData } = await api.get(
+          `/university/${universityId}`,
           { headers: { "x-auth-token": token } }
         );
 
-        const { data: institutesData } = await axios.get(
-          `/api/university/${universityId}/institutes`,
+        const { data: institutesData } = await api.get(
+          `/university/${universityId}/institutes`,
           { headers: { "x-auth-token": token } }
         );
 
-        const { data: visitorsData } = await axios.get(
-          `/api/visitors/university/${universityId}`,
+        const { data: visitorsData } = await api.get(
+          `/visitors/university/${universityId}`,
           { headers: { "x-auth-token": token } }
         );
 

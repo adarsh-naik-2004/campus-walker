@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import axios from "axios";
 import CreateUniversity from "./CreateUniversity.jsx";
 import CreateUniversityAdmin from "./CreateUniversityAdmin.jsx";
 import CreateInstitute from "./CreateInstitute.jsx";
@@ -8,6 +7,7 @@ import ViewLocations from "./ViewLocations.jsx";
 import { useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 import CreateSuperAdmin from "./CreateSuperAdmin.jsx";
+import api from "../../utils/api.js";
 
 export default function SuperAdminDashboard() {
   const [activeTab, setActiveTab] = useState("visitors");
@@ -54,14 +54,14 @@ export default function SuperAdminDashboard() {
         }
 
         const [uniRes, visRes, adminRes, superAdminRes] = await Promise.all([
-          axios.get("/api/super-admin/universities", {
+          api.get("/super-admin/universities", {
             headers: { "x-auth-token": token },
           }),
-          axios.get("/api/visitors", { headers: { "x-auth-token": token } }),
-          axios.get("/api/super-admin/university-admins", {
+          api.get("/visitors", { headers: { "x-auth-token": token } }),
+          api.get("/super-admin/university-admins", {
             headers: { "x-auth-token": token },
           }),
-          axios.get("/api/super-admin/super-admins", {
+          api.get("/super-admin/super-admins", {
             headers: { "x-auth-token": token },
           }),
         ]);
@@ -86,7 +86,7 @@ export default function SuperAdminDashboard() {
   const fetchSuperAdmins = async () => {
     try {
       const token = localStorage.getItem("token");
-      const { data } = await axios.get("/api/super-admin/super-admins", {
+      const { data } = await api.get("/super-admin/super-admins", {
         headers: { "x-auth-token": token },
       });
       setSuperAdmins(data);
@@ -99,8 +99,8 @@ export default function SuperAdminDashboard() {
   const fetchInstitutes = async (universityId) => {
     try {
       const token = localStorage.getItem("token");
-      const { data } = await axios.get(
-        `/api/university/${universityId}/institutes`,
+      const { data } = await api.get(
+        `/university/${universityId}/institutes`,
         { headers: { "x-auth-token": token } } // Add headers
       );
       setInstitutes(data);
@@ -113,8 +113,8 @@ export default function SuperAdminDashboard() {
   const fetchInstituteAdmins = async (instituteId) => {
     try {
       const token = localStorage.getItem("token");
-      const { data } = await axios.get(
-        `/api/institute/${instituteId}/admins`,
+      const { data } = await api.get(
+        `/institute/${instituteId}/admins`,
         { headers: { "x-auth-token": token } } // Add this line
       );
       setInstituteAdmins(data);
@@ -128,7 +128,7 @@ export default function SuperAdminDashboard() {
     const fetchData = async () => {
       try {
         const token = localStorage.getItem("token");
-        const { data } = await axios.get("/api/super-admin/university-admins", {
+        const { data } = await api.get("/super-admin/university-admins", {
           headers: { "x-auth-token": token },
         });
         setUniversityAdmins(data);
@@ -369,8 +369,8 @@ export default function SuperAdminDashboard() {
                               if (
                                 window.confirm("Delete this visitor record?")
                               ) {
-                                await axios.delete(
-                                  `/api/visitors/${visitor._id}`,
+                                await api.delete(
+                                  `/visitors/${visitor._id}`,
                                   {
                                     headers: {
                                       "x-auth-token":
@@ -458,8 +458,8 @@ export default function SuperAdminDashboard() {
                                           admin._id
                                         );
 
-                                        await axios.delete(
-                                          `/api/super-admin/super-admins/${admin._id}`,
+                                        await api.delete(
+                                          `/super-admin/super-admins/${admin._id}`,
                                           {
                                             headers: {
                                               "x-auth-token":
@@ -580,8 +580,8 @@ export default function SuperAdminDashboard() {
                               className="text-red-500 hover:text-red-700 text-sm font-medium"
                               onClick={async () => {
                                 if (window.confirm("Delete this university?")) {
-                                  await axios.delete(
-                                    `/api/super-admin/universities/${university._id}`,
+                                  await api.delete(
+                                    `/super-admin/universities/${university._id}`,
                                     {
                                       headers: {
                                         "x-auth-token":
@@ -647,8 +647,8 @@ export default function SuperAdminDashboard() {
                               className="text-red-500 hover:text-red-700 text-sm font-medium"
                               onClick={async () => {
                                 if (window.confirm("Delete this admin?")) {
-                                  await axios.delete(
-                                    `/api/super-admin/university-admins/${admin._id}`,
+                                  await api.delete(
+                                    `/super-admin/university-admins/${admin._id}`,
                                     {
                                       headers: {
                                         "x-auth-token":
@@ -746,8 +746,8 @@ export default function SuperAdminDashboard() {
                               className="text-red-500 hover:text-red-700 text-sm font-medium"
                               onClick={async () => {
                                 if (window.confirm("Delete this institute?")) {
-                                  await axios.delete(
-                                    `/api/institute/${institute._id}`,
+                                  await api.delete(
+                                    `/institute/${institute._id}`,
                                     {
                                       headers: {
                                         "x-auth-token":
@@ -844,8 +844,8 @@ export default function SuperAdminDashboard() {
                               className="text-red-500 hover:text-red-700"
                               onClick={async () => {
                                 if (window.confirm("Delete this admin?")) {
-                                  await axios.delete(
-                                    `/api/institute/admins/${admin._id}`,
+                                  await api.delete(
+                                    `/institute/admins/${admin._id}`,
                                     {
                                       headers: {
                                         "x-auth-token":
