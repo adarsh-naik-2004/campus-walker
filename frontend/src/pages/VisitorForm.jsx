@@ -115,7 +115,7 @@ export default function VisitorForm() {
               type="text"
               required
               className="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
-              placeholder="John Doe"
+              placeholder=""
               value={formData.name}
               onChange={(e) =>
                 setFormData({ ...formData, name: e.target.value })
@@ -132,7 +132,7 @@ export default function VisitorForm() {
               type="email"
               required
               className="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
-              placeholder="john@example.com"
+              placeholder=""
               value={formData.email}
               onChange={(e) =>
                 setFormData({ ...formData, email: e.target.value })
@@ -149,7 +149,7 @@ export default function VisitorForm() {
               type="tel"
               required
               className="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
-              placeholder="1234567890"
+              placeholder=""
               value={formData.mobile}
               onChange={(e) =>
                 setFormData({ ...formData, mobile: e.target.value })

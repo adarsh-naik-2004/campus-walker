@@ -1,15 +1,19 @@
-// src/models/Institute.js
-import mongoose from 'mongoose';
+// Make sure the institute model references University
+import mongoose from "mongoose";
 
 const instituteSchema = new mongoose.Schema({
   name: { type: String, required: true },
-  university: { 
+  university: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'University',
+    ref: "University",
     required: true
   },
-  // No need for locations array here
-  createdAt: { type: Date, default: Date.now }
-});
+  locations: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Location"
+  }]
+}, { timestamps: true });
 
-export default mongoose.model('Institute', instituteSchema);
+const Institute = mongoose.model("Institute", instituteSchema);
+
+export default Institute;

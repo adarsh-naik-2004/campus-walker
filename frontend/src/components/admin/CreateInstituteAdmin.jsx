@@ -35,7 +35,7 @@ export default function CreateInstituteAdmin({ instituteId, setInstituteAdmins }
   return (
     <div className="bg-white p-6 rounded-2xl shadow-lg mb-8">
       <h2 className="text-2xl font-bold mb-6 flex items-center gap-2">
-        <span className="text-2xl">👨💼</span> Create Institute Admin
+        <span className="text-2xl">💼</span> Create Institute Admin
       </h2>
       <form onSubmit={handleSubmit} className="space-y-6">
         <div className="space-y-2">

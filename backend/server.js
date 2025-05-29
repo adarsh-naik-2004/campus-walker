@@ -19,12 +19,11 @@ const app = express();
 // Middleware
 // Update CORS middleware
 app.use(cors({
-  origin: 'http://localhost:5173',
+  origin: ['http://localhost:5173', 'https://ar-nav-system.vercel.app'],
   credentials: true,
   allowedHeaders: ['Content-Type', 'Authorization', 'x-auth-token'],
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS']
 }));
-app.options('*', cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 

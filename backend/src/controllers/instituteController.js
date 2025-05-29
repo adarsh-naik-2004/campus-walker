@@ -31,7 +31,7 @@ export const addLocation = async (req, res) => {
     const { name, floor, category, instituteId, coordinates } = req.body;
 
     // Validate institute exists and get university reference
-    const institute = await Institute.findById(instituteId);
+    const institute = await Institute.findById(instituteId).populate('university');
     if (!institute) {
       return res.status(404).json({ message: 'Institute not found' });
     }
@@ -42,14 +42,14 @@ export const addLocation = async (req, res) => {
       floor: Number(floor),
       category,
       coordinates: {
-        latitude: parseFloat(coordinates.y), // Y axis = latitude
-        longitude: parseFloat(coordinates.x), // X axis = longitude
+        latitude: parseFloat(coordinates.y),
+        longitude: parseFloat(coordinates.x),
         altitude: parseFloat(coordinates.z || 0)
       },
-      university: institute.university,
+      university: institute.university._id, // Use university ID from institute
       institute: instituteId
     });
-    console.log("Received coordinates:", coordinates);
+
     await location.save();
     res.status(201).json(location);
   } catch (err) {

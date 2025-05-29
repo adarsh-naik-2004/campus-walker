@@ -5,7 +5,8 @@ import {
   createInstitute,
   createInstituteAdmin,
   getUniversityInstitutes,
-  getUniversities // Add this
+  getUniversities,
+  getUniversityById
 } from "../controllers/universityController.js";
 import University from "../models/University.js";
 
@@ -31,5 +32,8 @@ router.get('/:id', async (req, res) => {
     res.status(500).json({ message: 'Server error' });
   }
 });
+
+router.get('/:id', auth, getUniversityById);
+
 
 export default router;

@@ -62,3 +62,19 @@ export const getUniversities = async (req, res) => {
     res.status(500).json({ message: 'Server error' });
   }
 };
+
+export const getUniversityById = async (req, res) => {
+  try {
+    const university = await University.findById(req.params.id)
+      .populate('institutes')
+      .populate('visitors');
+    
+    if (!university) {
+      return res.status(404).json({ message: 'University not found' });
+    }
+    
+    res.json(university);
+  } catch (err) {
+    res.status(500).json({ message: 'Server error' });
+  }
+};
