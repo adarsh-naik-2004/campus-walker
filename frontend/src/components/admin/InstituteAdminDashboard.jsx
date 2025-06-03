@@ -1,28 +1,26 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import CreateInstitute from "./CreateInstitute.jsx";
-import ViewLocations from "./ViewLocations.jsx";
+import AddLocation from "./AddLocation.jsx";
 import api from "../../utils/api.js";
 
-export default function UniversityAdminDashboard() {
-  const [activeTab, setActiveTab] = useState("institutes");
-  const [institutes, setInstitutes] = useState([]);
+export default function InstituteAdminDashboard() {
+  const [activeTab, setActiveTab] = useState("visitors");
+  const [locations, setLocations] = useState([]);
   const [visitors, setVisitors] = useState([]);
-  const [university, setUniversity] = useState(null);
-  const [selectedInstitute, setSelectedInstitute] = useState(null);
+  const [institute, setInstitute] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const navigate = useNavigate();
-  const universityId = localStorage.getItem("university");
+  const instituteId = localStorage.getItem("institute");
 
   const handleLogout = () => {
     localStorage.removeItem("token");
-    localStorage.removeItem("university");
+    localStorage.removeItem("institute");
     navigate("/admin");
   };
 
   useEffect(() => {
-    if (!universityId) {
+    if (!instituteId) {
       navigate("/admin");
       return;
     }
@@ -32,23 +30,26 @@ export default function UniversityAdminDashboard() {
         setLoading(true);
         const token = localStorage.getItem("token");
 
-        const { data: universityData } = await api.get(
-          `/university/${universityId}`,
+        // Fetch institute details with university info
+        const { data: instituteData } = await api.get(
+          `/institute/${instituteId}`,
           { headers: { "x-auth-token": token } }
         );
 
-        const { data: institutesData } = await api.get(
-          `/university/${universityId}/institutes`,
+        // Fetch institute-specific locations
+        const { data: locationsData } = await api.get(
+          `/institute/${instituteId}/locations`,
           { headers: { "x-auth-token": token } }
         );
 
+        // Fetch institute-specific visitors
         const { data: visitorsData } = await api.get(
-          `/visitors/university/${universityId}`,
+          `/visitors/institute/${instituteId}`,
           { headers: { "x-auth-token": token } }
         );
 
-        setUniversity(universityData);
-        setInstitutes(institutesData);
+        setInstitute(instituteData);
+        setLocations(locationsData);
         setVisitors(visitorsData);
         setError("");
       } catch (error) {
@@ -61,14 +62,42 @@ export default function UniversityAdminDashboard() {
     };
 
     fetchInitialData();
-  }, [universityId, navigate]);
+  }, [instituteId, navigate]);
+
+  const handleDeleteLocation = async (locationId) => {
+    try {
+      await api.delete(`/institute/locations/${locationId}`, {
+        headers: {
+          "x-auth-token": localStorage.getItem("token"),
+        },
+      });
+      setLocations(locations.filter((l) => l._id !== locationId));
+    } catch (error) {
+      console.error("Error deleting location:", error);
+      setError("Failed to delete location. Please try again.");
+    }
+  };
+
+  const handleDeleteVisitor = async (visitorId) => {
+    try {
+      await api.delete(`/visitors/${visitorId}`, {
+        headers: {
+          "x-auth-token": localStorage.getItem("token"),
+        },
+      });
+      setVisitors(visitors.filter((v) => v._id !== visitorId));
+    } catch (error) {
+      console.error("Error deleting visitor:", error);
+      setError("Failed to delete visitor. Please try again.");
+    }
+  };
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-gray-100 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading dashboard...</p>
+          <p className="mt-4 text-gray-600 font-medium">Loading dashboard...</p>
         </div>
       </div>
     );
@@ -76,10 +105,10 @@ export default function UniversityAdminDashboard() {
 
   if (error) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center text-red-600 bg-white p-8 rounded-2xl shadow-lg">
-          <div className="text-5xl mb-4">⚠️</div>
-          <p className="text-lg">{error}</p>
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-gray-100 flex items-center justify-center">
+        <div className="text-center p-8 bg-white rounded-2xl shadow-lg">
+          <div className="text-red-500 text-5xl mb-4">⚠️</div>
+          <p className="text-red-600 font-medium">{error}</p>
         </div>
       </div>
     );
@@ -87,248 +116,298 @@ export default function UniversityAdminDashboard() {
 
   const tabs = [
     { id: "visitors", label: "Visitors", icon: "👥", count: visitors.length },
-    { id: "institutes", label: "Institutes", icon: "🏢", count: institutes.length },
-    { id: "locations", label: "Locations", icon: "📍" },
+    { id: "locations", label: "Locations", icon: "📍", count: locations.length },
   ];
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* University Header */}
-      <div className="bg-white shadow-sm border-b border-gray-200">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-gray-100">
+      {/* Header Section - College/Institute Info */}
+      <div className="bg-white border-b border-gray-200 shadow-sm">
         <div className="max-w-7xl mx-auto px-6 py-6">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-6">
-              {university?.logo && (
-                <div className="flex-shrink-0">
+            {/* Left: Institute Info */}
+            <div className="flex items-center space-x-4">
+              {/* University Logo */}
+              <div className="flex-shrink-0">
+                {institute?.university?.logo ? (
                   <img
-                    src={university.logo}
+                    src={institute.university.logo}
                     alt="University Logo"
-                    className="h-20 w-20 object-contain rounded-xl border-2 border-gray-100 shadow-sm"
+                    className="h-16 w-16 object-contain rounded-xl border-2 border-gray-100 shadow-sm"
                   />
-                </div>
-              )}
-              <div>
-                <h1 className="text-3xl font-bold text-gray-900 mb-1">
-                  {university?.name || "University Dashboard"}
+                ) : (
+                  <div className="h-16 w-16 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-sm">
+                    <span className="text-white text-2xl font-bold">
+                      {institute?.name?.charAt(0) || "I"}
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              {/* Institute Details */}
+              <div className="min-w-0 flex-1">
+                <h1 className="text-2xl font-bold text-gray-900 truncate">
+                  {institute?.name || "Institute Dashboard"}
                 </h1>
-                <p className="text-gray-600 text-lg">{university?.address}</p>
-                <div className="flex items-center gap-4 mt-2">
-                  <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
-                    🟢 Online
-                  </span>
-                  <span className="text-sm text-gray-500">
-                    Admin Dashboard
-                  </span>
-                </div>
+                <p className="text-lg font-medium text-gray-700 truncate">
+                  {institute?.university?.name || "University"}
+                </p>
+                {institute?.university?.address && (
+                  <p className="text-sm text-gray-500 truncate">
+                    📍 {institute.university.address}
+                  </p>
+                )}
               </div>
             </div>
+
+            {/* Right: Logout Button */}
             <button
               onClick={handleLogout}
-              className="px-6 py-3 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-xl font-semibold hover:from-red-600 hover:to-red-700 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-105 flex items-center gap-2"
+              className="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-lg font-medium hover:from-red-600 hover:to-red-700 transition-all duration-200 shadow-md hover:shadow-lg"
             >
               <span>🚪</span>
-              Logout
+              <span>Logout</span>
             </button>
           </div>
         </div>
       </div>
 
       {/* Tab Navigation */}
-      <div className="bg-white border-b border-gray-200 sticky top-0 z-40">
+      <div className="bg-white border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-6">
-          <div className="flex items-center gap-0">
-            {tabs.map((tab, index) => (
+          <nav className="flex space-x-8" aria-label="Tabs">
+            {tabs.map((tab) => (
               <button
                 key={tab.id}
-                className={`relative px-8 py-4 font-semibold text-lg transition-all duration-200 border-b-3 flex items-center gap-3 ${
-                  activeTab === tab.id
-                    ? "text-blue-600 border-blue-600 bg-blue-50/50"
-                    : "text-gray-600 border-transparent hover:text-gray-900 hover:bg-gray-50"
-                }`}
                 onClick={() => setActiveTab(tab.id)}
+                className={`
+                  flex items-center space-x-2 py-4 px-1 border-b-2 font-medium text-sm transition-all duration-200
+                  ${
+                    activeTab === tab.id
+                      ? "border-blue-500 text-blue-600"
+                      : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                  }
+                `}
               >
-                <span className="text-2xl">{tab.icon}</span>
+                <span className="text-lg">{tab.icon}</span>
                 <span>{tab.label}</span>
-                {tab.count !== undefined && (
-                  <span className={`ml-2 px-2.5 py-1 rounded-full text-sm font-bold ${
-                    activeTab === tab.id 
-                      ? "bg-blue-600 text-white" 
-                      : "bg-gray-200 text-gray-700"
-                  }`}>
-                    {tab.count}
-                  </span>
-                )}
-                {/* Active tab indicator */}
-                {activeTab === tab.id && (
-                  <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-500 to-blue-600 rounded-t-full"></div>
-                )}
+                <span
+                  className={`
+                    inline-flex items-center justify-center px-2 py-1 text-xs font-bold rounded-full
+                    ${
+                      activeTab === tab.id
+                        ? "bg-blue-100 text-blue-800"
+                        : "bg-gray-100 text-gray-600"
+                    }
+                  `}
+                >
+                  {tab.count}
+                </span>
               </button>
             ))}
-          </div>
+          </nav>
         </div>
       </div>
 
-      {/* Tab Content */}
+      {/* Main Content Area */}
       <div className="max-w-7xl mx-auto px-6 py-8">
-        {activeTab === "visitors" && (
-          <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
-            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 px-8 py-6 border-b border-gray-200">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-3">
-                    👥 University Visitors
-                  </h2>
-                  <p className="text-gray-600 mt-1">
-                    Track and manage all university visitors
-                  </p>
-                </div>
-                <div className="text-right">
-                  <div className="text-3xl font-bold text-blue-600">{visitors.length}</div>
-                  <div className="text-sm text-gray-500">Total Visitors</div>
+        {/* Error Display */}
+        {error && (
+          <div className="mb-6 p-4 bg-red-50 border border-red-200 text-red-700 rounded-xl flex items-center space-x-3">
+            <span className="text-xl">⚠️</span>
+            <span className="font-medium">{error}</span>
+          </div>
+        )}
+
+        {/* Tab Content */}
+        <div className="tab-content">
+          {/* Visitors Tab */}
+          {activeTab === "visitors" && (
+            <div className="bg-white rounded-2xl shadow-lg">
+              {/* Tab Header */}
+              <div className="px-6 py-4 border-b border-gray-200">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-3">
+                    <span className="text-2xl">👥</span>
+                    <div>
+                      <h2 className="text-xl font-bold text-gray-900">Institute Visitors</h2>
+                      <p className="text-sm text-gray-600">Manage visitor records and information</p>
+                    </div>
+                  </div>
+                  <div className="text-sm text-gray-500">
+                    Total: <span className="font-bold text-gray-900">{visitors.length}</span>
+                  </div>
                 </div>
               </div>
-            </div>
-            
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    {["Name", "Contact", "Institute", "Purpose", "Visit Date"].map(
-                      (header) => (
+
+              {/* Visitors Table */}
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      {["Name", "Contact", "Purpose", "Visit Date", "Actions"].map((header) => (
                         <th
                           key={header}
-                          className="px-8 py-4 text-left text-sm font-semibold text-gray-700 uppercase tracking-wider"
+                          className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider"
                         >
                           {header}
                         </th>
-                      )
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {visitors.map((visitor) => (
+                      <tr key={visitor._id} className="hover:bg-gray-50 transition-colors">
+                        <td className="px-6 py-4">
+                          <div className="font-medium text-gray-900">{visitor.name}</div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="text-gray-600">{visitor.email}</div>
+                          <div className="text-sm text-gray-500">{visitor.mobile}</div>
+                        </td>
+                        <td className="px-6 py-4 text-gray-600">{visitor.purpose}</td>
+                        <td className="px-6 py-4 text-gray-600 whitespace-nowrap">
+                          {new Date(visitor.createdAt).toLocaleDateString("en-US", {
+                            year: "numeric",
+                            month: "short",
+                            day: "numeric",
+                          })}
+                        </td>
+                        <td className="px-6 py-4">
+                          <button
+                            className="text-red-500 hover:text-red-700 font-medium transition-colors"
+                            onClick={() => {
+                              if (window.confirm("Delete this visitor record?")) {
+                                handleDeleteVisitor(visitor._id);
+                              }
+                            }}
+                          >
+                            Delete
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                    {visitors.length === 0 && (
+                      <tr>
+                        <td colSpan="5" className="px-6 py-12 text-center">
+                          <div className="text-gray-400 text-6xl mb-4">👥</div>
+                          <p className="text-gray-500 font-medium">No visitors found</p>
+                          <p className="text-sm text-gray-400">Visitor records will appear here</p>
+                        </td>
+                      </tr>
                     )}
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {visitors.map((visitor) => (
-                    <tr key={visitor._id} className="hover:bg-gray-50 transition-colors">
-                      <td className="px-8 py-6">
-                        <div className="font-semibold text-gray-900">{visitor.name}</div>
-                      </td>
-                      <td className="px-8 py-6">
-                        <div className="text-gray-700">{visitor.email}</div>
-                        <div className="text-gray-500 text-sm">{visitor.mobile}</div>
-                      </td>
-                      <td className="px-8 py-6">
-                        <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
-                          {visitor.institute?.name || "N/A"}
-                        </span>
-                      </td>
-                      <td className="px-8 py-6 text-gray-700">{visitor.purpose}</td>
-                      <td className="px-8 py-6 text-gray-700">
-                        {new Date(visitor.createdAt).toLocaleDateString("en-US", {
-                          year: "numeric",
-                          month: "short",
-                          day: "numeric",
-                        })}
-                      </td>
-                    </tr>
-                  ))}
-                  {visitors.length === 0 && (
-                    <tr>
-                      <td colSpan="5" className="px-8 py-12 text-center text-gray-500">
-                        <div className="text-6xl mb-4">👥</div>
-                        <p className="text-lg">No visitors found for this university</p>
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
+                  </tbody>
+                </table>
+              </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {activeTab === "institutes" && (
-          <div className="space-y-8">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-              <CreateInstitute
-                universityId={universityId}
-                setInstitutes={setInstitutes}
-              />
-              
-              <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
-                <div className="bg-gradient-to-r from-green-50 to-emerald-50 px-8 py-6 border-b border-gray-200">
+          {/* Locations Tab */}
+          {activeTab === "locations" && (
+            <div className="space-y-8">
+              {/* Add Location Form */}
+              <AddLocation instituteId={instituteId} setLocations={setLocations} />
+
+              {/* Locations List */}
+              <div className="bg-white rounded-2xl shadow-lg">
+                {/* Tab Header */}
+                <div className="px-6 py-4 border-b border-gray-200">
                   <div className="flex items-center justify-between">
-                    <div>
-                      <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-3">
-                        🏢 University Institutes
-                      </h2>
-                      <p className="text-gray-600 mt-1">
-                        Manage all institutes under this university
-                      </p>
+                    <div className="flex items-center space-x-3">
+                      <span className="text-2xl">📍</span>
+                      <div>
+                        <h2 className="text-xl font-bold text-gray-900">Institute Locations</h2>
+                        <p className="text-sm text-gray-600">Manage all campus locations and facilities</p>
+                      </div>
                     </div>
-                    <div className="text-right">
-                      <div className="text-3xl font-bold text-green-600">{institutes.length}</div>
-                      <div className="text-sm text-gray-500">Total Institutes</div>
+                    <div className="text-sm text-gray-500">
+                      Total: <span className="font-bold text-gray-900">{locations.length}</span>
                     </div>
                   </div>
                 </div>
-                
-                <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        <th className="px-8 py-4 text-left text-sm font-semibold text-gray-700 uppercase tracking-wider">
-                          Institute Name
-                        </th>
-                        <th className="px-8 py-4 text-left text-sm font-semibold text-gray-700 uppercase tracking-wider">
-                          Created Date
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                      {institutes.map((institute) => (
-                        <tr key={institute._id} className="hover:bg-gray-50 transition-colors">
-                          <td className="px-8 py-6">
-                            <div className="font-semibold text-gray-900">{institute.name}</div>
-                          </td>
-                          <td className="px-8 py-6 text-gray-700">
-                            {new Date(institute.createdAt).toLocaleDateString()}
-                          </td>
-                        </tr>
+
+                {/* Locations Grid */}
+                <div className="p-6">
+                  {locations.length > 0 ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                      {locations.map((location) => (
+                        <div
+                          key={location._id}
+                          className="bg-white p-4 rounded-xl shadow-md hover:shadow-lg transition-all duration-200 border border-gray-100 hover:border-gray-200"
+                        >
+                          {/* Location Image */}
+                          {location.image ? (
+                            <div className="mb-4 h-48 rounded-lg overflow-hidden">
+                              <img
+                                src={location.image}
+                                alt={location.name}
+                                className="w-full h-full object-cover hover:scale-105 transition-transform duration-200"
+                              />
+                            </div>
+                          ) : (
+                            <div className="mb-4 h-48 rounded-lg bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center">
+                              <span className="text-gray-400 text-4xl">🏢</span>
+                            </div>
+                          )}
+
+                          {/* Location Info */}
+                          <div className="space-y-3">
+                            <div className="flex justify-between items-start">
+                              <h3 className="text-lg font-semibold text-gray-900 truncate">
+                                {location.name}
+                              </h3>
+                              <button
+                                onClick={() => {
+                                  if (window.confirm("Delete this location?")) {
+                                    handleDeleteLocation(location._id);
+                                  }
+                                }}
+                                className="text-red-500 hover:text-red-700 text-sm font-medium transition-colors"
+                              >
+                                Delete
+                              </button>
+                            </div>
+
+                            <div className="space-y-2 text-sm">
+                              <div className="flex items-center justify-between">
+                                <span className="text-gray-500">Floor:</span>
+                                <span className="font-medium bg-gray-100 px-2 py-1 rounded">
+                                  {location.floor}
+                                </span>
+                              </div>
+
+                              <div className="flex items-center justify-between">
+                                <span className="text-gray-500">Coordinates:</span>
+                                <span className="font-mono text-xs">
+                                  ({location.coordinates.latitude.toFixed(2)},{" "}
+                                  {location.coordinates.longitude.toFixed(2)})
+                                </span>
+                              </div>
+
+                              {location.description && (
+                                <div className="pt-2 border-t border-gray-100">
+                                  <p className="text-gray-600 text-sm line-clamp-2">
+                                    {location.description}
+                                  </p>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
                       ))}
-                      {institutes.length === 0 && (
-                        <tr>
-                          <td colSpan="2" className="px-8 py-12 text-center text-gray-500">
-                            <div className="text-6xl mb-4">🏢</div>
-                            <p className="text-lg">No institutes found. Create one to get started.</p>
-                          </td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
+                    </div>
+                  ) : (
+                    <div className="text-center py-12">
+                      <div className="text-gray-400 text-6xl mb-4">📍</div>
+                      <p className="text-gray-500 font-medium">No locations found</p>
+                      <p className="text-sm text-gray-400">Add your first location above</p>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
-          </div>
-        )}
-
-        {activeTab === "locations" && (
-          <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
-            <div className="bg-gradient-to-r from-purple-50 to-pink-50 px-8 py-6 border-b border-gray-200">
-              <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-3">
-                📍 Location Management
-              </h2>
-              <p className="text-gray-600 mt-1">
-                View and manage locations across all institutes
-              </p>
-            </div>
-            
-            <div className="p-8">
-              <ViewLocations
-                institutes={institutes}
-                selectedInstitute={selectedInstitute}
-                setSelectedInstitute={setSelectedInstitute}
-              />
-            </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
     </div>
   );
