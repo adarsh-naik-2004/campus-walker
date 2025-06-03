@@ -1,26 +1,28 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import AddLocation from "./AddLocation.jsx";
+import CreateInstitute from "./CreateInstitute.jsx";
+import ViewLocations from "./ViewLocations.jsx";
 import api from "../../utils/api.js";
 
-export default function InstituteAdminDashboard() {
-  const [activeTab, setActiveTab] = useState("visitors");
-  const [locations, setLocations] = useState([]);
+export default function UniversityAdminDashboard() {
+  const [activeTab, setActiveTab] = useState("institutes");
+  const [institutes, setInstitutes] = useState([]);
   const [visitors, setVisitors] = useState([]);
-  const [institute, setInstitute] = useState(null);
+  const [university, setUniversity] = useState(null);
+  const [selectedInstitute, setSelectedInstitute] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const navigate = useNavigate();
-  const instituteId = localStorage.getItem("institute");
+  const universityId = localStorage.getItem("university");
 
   const handleLogout = () => {
     localStorage.removeItem("token");
-    localStorage.removeItem("institute");
+    localStorage.removeItem("university");
     navigate("/admin");
   };
 
   useEffect(() => {
-    if (!instituteId) {
+    if (!universityId) {
       navigate("/admin");
       return;
     }
@@ -30,26 +32,23 @@ export default function InstituteAdminDashboard() {
         setLoading(true);
         const token = localStorage.getItem("token");
 
-        // Fetch institute details with university info
-        const { data: instituteData } = await api.get(
-          `/institute/${instituteId}`, // Matches backend route
+        const { data: universityData } = await api.get(
+          `/university/${universityId}`,
           { headers: { "x-auth-token": token } }
         );
 
-        // Fetch institute-specific locations
-        const { data: locationsData } = await api.get(
-          `/institute/${instituteId}/locations`,
+        const { data: institutesData } = await api.get(
+          `/university/${universityId}/institutes`,
           { headers: { "x-auth-token": token } }
         );
 
-        // Fetch institute-specific visitors
         const { data: visitorsData } = await api.get(
-          `/visitors/institute/${instituteId}`,
+          `/visitors/university/${universityId}`,
           { headers: { "x-auth-token": token } }
         );
 
-        setInstitute(instituteData);
-        setLocations(locationsData);
+        setUniversity(universityData);
+        setInstitutes(institutesData);
         setVisitors(visitorsData);
         setError("");
       } catch (error) {
@@ -62,259 +61,275 @@ export default function InstituteAdminDashboard() {
     };
 
     fetchInitialData();
-  }, [instituteId, navigate]);
-
-  const handleDeleteLocation = async (locationId) => {
-    try {
-      await api.delete(`/institute/locations/${locationId}`, {
-        headers: {
-          "x-auth-token": localStorage.getItem("token"),
-        },
-      });
-      setLocations(locations.filter((l) => l._id !== locationId));
-    } catch (error) {
-      console.error("Error deleting location:", error);
-      setError("Failed to delete location. Please try again.");
-    }
-  };
-
-  const handleDeleteVisitor = async (visitorId) => {
-    try {
-      await api.delete(`/visitors/${visitorId}`, {
-        headers: {
-          "x-auth-token": localStorage.getItem("token"),
-        },
-      });
-      setVisitors(visitors.filter((v) => v._id !== visitorId));
-    } catch (error) {
-      console.error("Error deleting visitor:", error);
-      setError("Failed to delete visitor. Please try again.");
-    }
-  };
+  }, [universityId, navigate]);
 
   if (loading) {
-    return <div className="p-6 text-center">Loading dashboard...</div>;
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading dashboard...</p>
+        </div>
+      </div>
+    );
   }
 
   if (error) {
-    return <div className="p-6 text-red-600 text-center">{error}</div>;
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center text-red-600 bg-white p-8 rounded-2xl shadow-lg">
+          <div className="text-5xl mb-4">⚠️</div>
+          <p className="text-lg">{error}</p>
+        </div>
+      </div>
+    );
   }
 
+  const tabs = [
+    { id: "visitors", label: "Visitors", icon: "👥", count: visitors.length },
+    { id: "institutes", label: "Institutes", icon: "🏢", count: institutes.length },
+    { id: "locations", label: "Locations", icon: "📍" },
+  ];
+
   return (
-  <div className="min-h-screen bg-gray-50 p-6">
-    <div className="max-w-7xl mx-auto">
-      {/* Header Section */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-8 gap-4 bg-white p-4 rounded-2xl shadow-lg">
-        <div className="flex items-center gap-4">
-          {institute?.university?.logo && (
-            <img
-              src={institute.university.logo}
-              alt="University Logo"
-              className="h-16 w-16 object-contain rounded-lg border-2 border-gray-100"
-            />
-          )}
-          <div>
-            <h1 className="text-2xl font-bold flex items-center gap-2">
-              <span className="text-2xl">🏢</span>
-              {institute?.name || "Institute"} Dashboard
-            </h1>
-            <p className="text-lg text-gray-700 font-medium mt-1">
-              {institute?.university?.name || "University"}
-            </p>
-            <p className="text-sm text-gray-500">
-              {institute?.university?.address}
-            </p>
-        </div>
-        <button
-          onClick={handleLogout}
-          className="px-6 py-2 bg-gradient-to-r from-red-600 to-rose-600 text-white rounded-lg font-semibold hover:from-red-700 hover:to-rose-700 transition-all transform hover:scale-[1.02] shadow-md"
-        >
-          Logout
-        </button>
-      </div>
-
-      {/* Navigation Menu */}
-      <div className="flex flex-wrap gap-2 mb-8 bg-white p-2 rounded-xl shadow-sm">
-        {[
-          { id: "visitors", label: "Visitors", icon: "👥" },
-          { id: "locations", label: "Locations", icon: "📍" },
-        ].map((tab) => (
-          <button
-            key={tab.id}
-            className={`px-4 py-2 rounded-lg flex items-center gap-2 transition-all ${
-              activeTab === tab.id
-                ? "bg-blue-100 text-blue-600"
-                : "hover:bg-gray-100"
-            }`}
-            onClick={() => setActiveTab(tab.id)}
-          >
-            <span className="text-xl">{tab.icon}</span>
-            <span className="hidden sm:inline">{tab.label}</span>
-          </button>
-        ))}
-      </div>
-
-      {/* Error Display */}
-      {error && (
-        <div className="mb-4 p-4 bg-red-50 border border-red-200 text-red-700 rounded-lg flex items-center gap-2">
-          <svg
-            className="w-5 h-5 flex-shrink-0"
-            fill="currentColor"
-            viewBox="0 0 20 20"
-          >
-            <path
-              fillRule="evenodd"
-              d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
-              clipRule="evenodd"
-            />
-          </svg>
-          <span>{error}</span>
-        </div>
-      )}
-
-      {/* Visitors Tab */}
-      {activeTab === "visitors" && (
-        <div className="bg-white rounded-2xl shadow-lg p-6">
-          <h2 className="text-2xl font-bold mb-6 flex items-center gap-2">
-            👥 Institute Visitors
-          </h2>
-          <div className="overflow-x-auto rounded-lg border border-gray-100">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  {["Name", "Contact", "Purpose", "Visit Date", "Actions"].map(
-                    (header) => (
-                      <th
-                        key={header}
-                        className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider"
-                      >
-                        {header}
-                      </th>
-                    )
-                  )}
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {visitors.map((visitor) => (
-                  <tr key={visitor._id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 font-medium">{visitor.name}</td>
-                    <td className="px-6 py-4">
-                      <div className="text-gray-600">{visitor.email}</div>
-                      <div className="text-gray-500">{visitor.mobile}</div>
-                    </td>
-                    <td className="px-6 py-4">{visitor.purpose}</td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      {new Date(visitor.createdAt).toLocaleDateString("en-US", {
-                        year: "numeric",
-                        month: "short",
-                        day: "numeric",
-                      })}
-                    </td>
-                    <td className="px-6 py-4">
-                      <button
-                        className="text-red-500 hover:text-red-700"
-                        onClick={() => {
-                          if (window.confirm("Delete this visitor record?")) {
-                            handleDeleteVisitor(visitor._id);
-                          }
-                        }}
-                      >
-                        Delete
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-                {visitors.length === 0 && (
-                  <tr>
-                    <td
-                      colSpan="5"
-                      className="px-6 py-4 text-center text-gray-500"
-                    >
-                      No visitors found for this institute
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-
-      {/* Locations Tab */}
-      {activeTab === "locations" && (
-        <div className="space-y-8">
-          {/* Add Location Component */}
-          <AddLocation instituteId={instituteId} setLocations={setLocations} />
-
-          {/* Locations List */}
-          <div className="bg-white rounded-2xl shadow-lg p-6">
-            <h2 className="text-2xl font-bold mb-6 flex items-center gap-2">
-              📍 Institute Locations
-            </h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {locations.map((location) => (
-                <div
-                  key={location._id}
-                  className="bg-white p-4 rounded-xl shadow-md hover:shadow-lg transition-all border border-gray-100"
-                > 
-                  {location.image && (
-                    <div className="mb-4 h-48 rounded-lg overflow-hidden">
-                      <img 
-                        src={location.image} 
-                        alt={location.name}
-                        className="w-full h-full object-cover"
-                      />
-                    </div>
-                  )}
-                  <div className="flex justify-between items-start mb-4">
-                    <h3 className="text-lg font-semibold text-gray-900">
-                      {location.name}
-                    </h3>
-                    <button
-                      onClick={() => {
-                        if (window.confirm("Delete this location?")) {
-                          handleDeleteLocation(location._id);
-                        }
-                      }}
-                      className="text-red-500 hover:text-red-700 text-sm font-medium"
-                    >
-                      Delete
-                    </button>
-                  </div>
-                  <div className="space-y-2 text-sm text-gray-600">
-                    <p className="flex items-center gap-1">
-                      <span className="text-gray-500">Floor:</span>
-                      <span className="font-medium">{location.floor}</span>
-                    </p>
-                    
-                    <p className="flex items-center gap-1">
-                      <span className="text-gray-500">Coordinates:</span>
-                      <span className="font-mono">
-                        ({location.coordinates.latitude.toFixed(2)},{" "}
-                        {location.coordinates.longitude.toFixed(2)})
-                      </span>
-                    </p>
-                    {location.description && (
-                      <p className="text-gray-600 text-sm">
-                        {location.description}
-                      </p>
-                    )}
-                  </div>
-                </div>
-              ))}
-              {locations.length === 0 && (
-                <div className="col-span-full text-center py-8">
-                  <p className="text-gray-500 text-lg">
-                    No locations found. Add your first location above.
-                  </p>
+    <div className="min-h-screen bg-gray-50">
+      {/* University Header */}
+      <div className="bg-white shadow-sm border-b border-gray-200">
+        <div className="max-w-7xl mx-auto px-6 py-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-6">
+              {university?.logo && (
+                <div className="flex-shrink-0">
+                  <img
+                    src={university.logo}
+                    alt="University Logo"
+                    className="h-20 w-20 object-contain rounded-xl border-2 border-gray-100 shadow-sm"
+                  />
                 </div>
               )}
+              <div>
+                <h1 className="text-3xl font-bold text-gray-900 mb-1">
+                  {university?.name || "University Dashboard"}
+                </h1>
+                <p className="text-gray-600 text-lg">{university?.address}</p>
+                <div className="flex items-center gap-4 mt-2">
+                  <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
+                    🟢 Online
+                  </span>
+                  <span className="text-sm text-gray-500">
+                    Admin Dashboard
+                  </span>
+                </div>
+              </div>
             </div>
+            <button
+              onClick={handleLogout}
+              className="px-6 py-3 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-xl font-semibold hover:from-red-600 hover:to-red-700 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-105 flex items-center gap-2"
+            >
+              <span>🚪</span>
+              Logout
+            </button>
           </div>
         </div>
-      )}
-  </div>
-  </div>
-  </div>
+      </div>
+
+      {/* Tab Navigation */}
+      <div className="bg-white border-b border-gray-200 sticky top-0 z-40">
+        <div className="max-w-7xl mx-auto px-6">
+          <div className="flex items-center gap-0">
+            {tabs.map((tab, index) => (
+              <button
+                key={tab.id}
+                className={`relative px-8 py-4 font-semibold text-lg transition-all duration-200 border-b-3 flex items-center gap-3 ${
+                  activeTab === tab.id
+                    ? "text-blue-600 border-blue-600 bg-blue-50/50"
+                    : "text-gray-600 border-transparent hover:text-gray-900 hover:bg-gray-50"
+                }`}
+                onClick={() => setActiveTab(tab.id)}
+              >
+                <span className="text-2xl">{tab.icon}</span>
+                <span>{tab.label}</span>
+                {tab.count !== undefined && (
+                  <span className={`ml-2 px-2.5 py-1 rounded-full text-sm font-bold ${
+                    activeTab === tab.id 
+                      ? "bg-blue-600 text-white" 
+                      : "bg-gray-200 text-gray-700"
+                  }`}>
+                    {tab.count}
+                  </span>
+                )}
+                {/* Active tab indicator */}
+                {activeTab === tab.id && (
+                  <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-500 to-blue-600 rounded-t-full"></div>
+                )}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Tab Content */}
+      <div className="max-w-7xl mx-auto px-6 py-8">
+        {activeTab === "visitors" && (
+          <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
+            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 px-8 py-6 border-b border-gray-200">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-3">
+                    👥 University Visitors
+                  </h2>
+                  <p className="text-gray-600 mt-1">
+                    Track and manage all university visitors
+                  </p>
+                </div>
+                <div className="text-right">
+                  <div className="text-3xl font-bold text-blue-600">{visitors.length}</div>
+                  <div className="text-sm text-gray-500">Total Visitors</div>
+                </div>
+              </div>
+            </div>
+            
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    {["Name", "Contact", "Institute", "Purpose", "Visit Date"].map(
+                      (header) => (
+                        <th
+                          key={header}
+                          className="px-8 py-4 text-left text-sm font-semibold text-gray-700 uppercase tracking-wider"
+                        >
+                          {header}
+                        </th>
+                      )
+                    )}
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {visitors.map((visitor) => (
+                    <tr key={visitor._id} className="hover:bg-gray-50 transition-colors">
+                      <td className="px-8 py-6">
+                        <div className="font-semibold text-gray-900">{visitor.name}</div>
+                      </td>
+                      <td className="px-8 py-6">
+                        <div className="text-gray-700">{visitor.email}</div>
+                        <div className="text-gray-500 text-sm">{visitor.mobile}</div>
+                      </td>
+                      <td className="px-8 py-6">
+                        <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
+                          {visitor.institute?.name || "N/A"}
+                        </span>
+                      </td>
+                      <td className="px-8 py-6 text-gray-700">{visitor.purpose}</td>
+                      <td className="px-8 py-6 text-gray-700">
+                        {new Date(visitor.createdAt).toLocaleDateString("en-US", {
+                          year: "numeric",
+                          month: "short",
+                          day: "numeric",
+                        })}
+                      </td>
+                    </tr>
+                  ))}
+                  {visitors.length === 0 && (
+                    <tr>
+                      <td colSpan="5" className="px-8 py-12 text-center text-gray-500">
+                        <div className="text-6xl mb-4">👥</div>
+                        <p className="text-lg">No visitors found for this university</p>
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {activeTab === "institutes" && (
+          <div className="space-y-8">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+              <CreateInstitute
+                universityId={universityId}
+                setInstitutes={setInstitutes}
+              />
+              
+              <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
+                <div className="bg-gradient-to-r from-green-50 to-emerald-50 px-8 py-6 border-b border-gray-200">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-3">
+                        🏢 University Institutes
+                      </h2>
+                      <p className="text-gray-600 mt-1">
+                        Manage all institutes under this university
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-3xl font-bold text-green-600">{institutes.length}</div>
+                      <div className="text-sm text-gray-500">Total Institutes</div>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-8 py-4 text-left text-sm font-semibold text-gray-700 uppercase tracking-wider">
+                          Institute Name
+                        </th>
+                        <th className="px-8 py-4 text-left text-sm font-semibold text-gray-700 uppercase tracking-wider">
+                          Created Date
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {institutes.map((institute) => (
+                        <tr key={institute._id} className="hover:bg-gray-50 transition-colors">
+                          <td className="px-8 py-6">
+                            <div className="font-semibold text-gray-900">{institute.name}</div>
+                          </td>
+                          <td className="px-8 py-6 text-gray-700">
+                            {new Date(institute.createdAt).toLocaleDateString()}
+                          </td>
+                        </tr>
+                      ))}
+                      {institutes.length === 0 && (
+                        <tr>
+                          <td colSpan="2" className="px-8 py-12 text-center text-gray-500">
+                            <div className="text-6xl mb-4">🏢</div>
+                            <p className="text-lg">No institutes found. Create one to get started.</p>
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {activeTab === "locations" && (
+          <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
+            <div className="bg-gradient-to-r from-purple-50 to-pink-50 px-8 py-6 border-b border-gray-200">
+              <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-3">
+                📍 Location Management
+              </h2>
+              <p className="text-gray-600 mt-1">
+                View and manage locations across all institutes
+              </p>
+            </div>
+            
+            <div className="p-8">
+              <ViewLocations
+                institutes={institutes}
+                selectedInstitute={selectedInstitute}
+                setSelectedInstitute={setSelectedInstitute}
+              />
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
   );
 }
