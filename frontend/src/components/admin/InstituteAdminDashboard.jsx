@@ -124,7 +124,6 @@ export default function InstituteAdminDashboard() {
             <p className="text-sm text-gray-500">
               {institute?.university?.address}
             </p>
-          </div>
         </div>
         <button
           onClick={handleLogout}
@@ -257,7 +256,16 @@ export default function InstituteAdminDashboard() {
                 <div
                   key={location._id}
                   className="bg-white p-4 rounded-xl shadow-md hover:shadow-lg transition-all border border-gray-100"
-                >
+                > 
+                  {location.image && (
+                    <div className="mb-4 h-48 rounded-lg overflow-hidden">
+                      <img 
+                        src={location.image} 
+                        alt={location.name}
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                  )}
                   <div className="flex justify-between items-start mb-4">
                     <h3 className="text-lg font-semibold text-gray-900">
                       {location.name}
@@ -305,7 +313,8 @@ export default function InstituteAdminDashboard() {
           </div>
         </div>
       )}
-    </div>
   </div>
-);
+  </div>
+  </div>
+  );
 }

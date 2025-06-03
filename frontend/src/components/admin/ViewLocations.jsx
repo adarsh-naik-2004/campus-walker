@@ -104,6 +104,12 @@ export default function ViewLocations({
                   Name
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                  Image
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                  Details
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
                   Category
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
@@ -124,6 +130,27 @@ export default function ViewLocations({
                     <div className="font-bold text-gray-800">{location.name}</div>
                     <div className="text-xs text-gray-500">
                       {location.institute?.name || "N/A"}
+                    </div>
+                  </td>
+                   <td className="px-6 py-4">
+                    {location.image ? (
+                      <div className="w-16 h-16 rounded-lg overflow-hidden border">
+                        <img 
+                          src={location.image} 
+                          alt={location.name}
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                    ) : (
+                      <div className="w-16 h-16 bg-gray-100 border rounded-lg flex items-center justify-center">
+                        <span className="text-gray-400 text-2xl">🏢</span>
+                      </div>
+                    )}
+                  </td>
+                  <td className="px-6 py-4">
+                    <div className="font-bold text-gray-800">{location.name}</div>
+                    <div className="text-sm text-gray-600 mt-1">
+                      {location.description}
                     </div>
                   </td>
                   <td className="px-6 py-4 capitalize">

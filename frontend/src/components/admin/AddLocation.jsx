@@ -5,42 +5,71 @@ import api from '../../utils/api'
 export default function AddLocation({ instituteId }) {
   const [formData, setFormData] = useState({
     name: '',
+    description: '',
     floor: 1,
     category: 'building',
     coordinates: { x: 0, y: 0, z: 0 }
-  })
-  const [loading, setLoading] = useState(false)
+  });
+  const [imagePreview, setImagePreview] = useState(null);
+  const [loading, setLoading] = useState(false);
+
+  const handleImageChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImagePreview(reader.result);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
 
   const handleSubmit = async (e) => {
-    e.preventDefault()
-    setLoading(true)
+    e.preventDefault();
+    setLoading(true);
     
+    const formPayload = new FormData();
+    formPayload.append('name', formData.name);
+    formPayload.append('description', formData.description);
+    formPayload.append('floor', formData.floor);
+    formPayload.append('category', formData.category);
+    formPayload.append('instituteId', instituteId);
+    formPayload.append('coordinates[x]', formData.coordinates.x);
+    formPayload.append('coordinates[y]', formData.coordinates.y);
+    formPayload.append('coordinates[z]', formData.coordinates.z);
+    
+    if (imagePreview) {
+      const blob = await fetch(imagePreview).then(r => r.blob());
+      formPayload.append('image', blob, 'location-image.jpg');
+    }
+
     try {
-      const { data } = await api.post('/institute/locations', 
-        {
-          ...formData,
-          instituteId,
-          coordinates: {
-            x: parseFloat(formData.coordinates.x),
-            y: parseFloat(formData.coordinates.y),
-            z: parseFloat(formData.coordinates.z)
-          }
-        },
-        { headers: { 'x-auth-token': localStorage.getItem('token') } }
-      )
-      toast.success('Location added successfully!')
+      const { data } = await api.post(
+        '/institute/locations', 
+        formPayload,
+        { 
+          headers: { 
+            'x-auth-token': localStorage.getItem('token'),
+            'Content-Type': 'multipart/form-data'
+          } 
+        }
+      );
+      toast.success('Location added successfully!');
       setFormData({
         name: '',
+        description: '',
         floor: 1,
         category: 'building',
         coordinates: { x: 0, y: 0, z: 0 }
-      })
+      });
+      setImagePreview(null);
     } catch (error) {
-      toast.error(error.response?.data?.message || 'Error adding location')
+      toast.error(error.response?.data?.message || 'Error adding location');
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
+
 
   return (
     <div className="bg-white p-6 rounded-2xl shadow-lg mb-8">
@@ -59,6 +88,47 @@ export default function AddLocation({ instituteId }) {
             value={formData.name}
             onChange={(e) => setFormData({ ...formData, name: e.target.value })}
           />
+        </div>
+
+        {/* Description Field */}
+        <div className="space-y-2">
+          <label className="text-sm font-semibold text-gray-700 tracking-wide">Description</label>
+          <textarea
+            className="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+            placeholder="Describe this location..."
+            value={formData.description}
+            onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+            rows="3"
+          />
+        </div>
+
+        {/* Image Upload */}
+        <div className="space-y-2">
+          <label className="text-sm font-semibold text-gray-700 tracking-wide">Location Image</label>
+          <div className="flex items-center gap-4">
+            <div className="relative flex-1">
+              <input
+                type="file"
+                accept="image/*"
+                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                onChange={handleImageChange}
+              />
+              <div className="px-4 py-8 border-2 border-dashed border-gray-300 rounded-lg text-center bg-gray-50 hover:bg-gray-100 transition-colors">
+                <p className="text-gray-500">Click to upload image</p>
+                <p className="text-xs text-gray-400 mt-1">JPG, PNG or GIF (Max 5MB)</p>
+              </div>
+            </div>
+            
+            {imagePreview && (
+              <div className="flex-shrink-0 w-24 h-24 rounded-lg overflow-hidden border">
+                <img 
+                  src={imagePreview} 
+                  alt="Preview" 
+                  className="w-full h-full object-cover"
+                />
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Category Selector */}

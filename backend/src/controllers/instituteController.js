@@ -1,7 +1,8 @@
 // src/controllers/instituteController.js
 import Location from '../models/Location.js';
 import User from '../models/User.js';
-import Institute from '../models/Institute.js'; // Make sure this import exists
+import Institute from '../models/Institute.js'; 
+import cloudinary from '../config/cloudinary.js';
 
 export const getInstituteById = async (req, res) => {
   try {
@@ -28,17 +29,29 @@ export const getInstituteById = async (req, res) => {
 
 export const addLocation = async (req, res) => {
   try {
-    const { name, floor, category, instituteId, coordinates } = req.body;
+    const { name, description, floor, category, instituteId, coordinates } = req.body;
+    let imageUrl = '';
 
-    // Validate institute exists and get university reference
+    // Upload image to Cloudinary if exists
+     if (req.file) {
+      const result = await cloudinary.uploader.upload(
+        `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`, 
+        {
+          folder: 'ar-nav/locations'
+        }
+      );
+      imageUrl = result.secure_url;
+    }
+
     const institute = await Institute.findById(instituteId).populate('university');
     if (!institute) {
       return res.status(404).json({ message: 'Institute not found' });
     }
 
-    // Create location with proper schema structure
     const location = new Location({
       name,
+      description,
+      image: imageUrl,
       floor: Number(floor),
       category,
       coordinates: {
@@ -46,7 +59,7 @@ export const addLocation = async (req, res) => {
         longitude: parseFloat(coordinates.x),
         altitude: parseFloat(coordinates.z || 0)
       },
-      university: institute.university._id, // Use university ID from institute
+      university: institute.university._id,
       institute: instituteId
     });
 
@@ -97,7 +110,7 @@ export const getInstituteLocations = async (req, res) => {
   }
 };
 
-// Add to instituteController.js
+
 export const deleteInstitute = async (req, res) => {
   try {
     const institute = await Institute.findByIdAndDelete(req.params.id);

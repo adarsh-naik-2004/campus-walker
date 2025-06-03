@@ -12,6 +12,7 @@ import {
 } from "../controllers/instituteController.js";
 import { auth } from "../middleware/auth.js";
 import { requireRole } from "../middleware/role.js";
+import upload from "../config/upload.js"; 
 
 const router = express.Router();
 
@@ -19,7 +20,13 @@ const router = express.Router();
 router.get('/:id', auth, getInstituteById);
 
 // Institute locations routes
-router.post("/locations", auth, requireRole("institute"), addLocation);
+router.post(
+  "/locations", 
+  auth, 
+  requireRole("institute"), 
+  upload.single('image'), 
+  addLocation
+);
 router.get("/locations", auth, getLocations);
 router.get("/:id/locations", auth, getInstituteLocations);
 

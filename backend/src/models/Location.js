@@ -3,6 +3,7 @@ import mongoose from 'mongoose';
 const locationSchema = new mongoose.Schema({
   name: { type: String, required: true },
   description: String,
+  image: { type: String },
   coordinates: {
     latitude: { type: Number, required: true },
     longitude: { type: Number, required: true },
@@ -18,7 +19,7 @@ const locationSchema = new mongoose.Schema({
   floor: { type: Number, default: 0 },
   arMarker: {
     type: { type: String, enum: ['qr', 'image', 'none'], default: 'none' },
-    data: String // QR code data or image URL
+    data: String
   },
   isActive: { type: Boolean, default: true }
 }, { timestamps: true });
