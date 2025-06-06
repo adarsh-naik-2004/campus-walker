@@ -76,13 +76,16 @@ export default function VisitorForm() {
           ? formData.customPurpose
           : formData.purposeType;
 
+      // Save instituteId before making API call
+      const selectedInstituteId = formData.institute;
+
+      // Make API call with current formData (before reset)
       await api.post("/visitors", {
         ...formData,
-        university: formData.university,
-        institute: formData.institute || null,
+        purpose: finalPurpose,
       });
-      toast.success("Registration successful!");
-      // Reset form
+
+      // Reset form AFTER successful API call
       setFormData({
         name: "",
         email: "",
@@ -92,12 +95,16 @@ export default function VisitorForm() {
         university: "",
         institute: "",
       });
-      navigate('/navigation', { state: { instituteId: formData.institute } });
+
+      toast.success("Registration successful!");
+
+      // Navigate using the saved instituteId
+      navigate("/navigation", { state: { instituteId: selectedInstituteId } });
     } catch (error) {
+      console.error("Registration error:", error); // Add this for debugging
       toast.error(error.response?.data?.message || "Failed to submit form");
     }
   };
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 flex items-center justify-center p-4">
       <div className="bg-white px-4 py-6 rounded-2xl shadow-2xl w-full max-w-md md:max-w-lg md:px-8 md:py-8 transition-all duration-300">

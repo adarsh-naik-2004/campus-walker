@@ -174,7 +174,7 @@ export default function ARNavigator() {
         </div>
     </div>
 
-     <script src="/ar-navigation.js"></script>
+     <script src="../utils/ar-navigation.js"></script>
 
     </div>
   );

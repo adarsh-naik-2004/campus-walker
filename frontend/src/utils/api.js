@@ -31,17 +31,35 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    // Handle unauthorized errors
-    if (error.response?.status === 401) {
-      localStorage.removeItem('token');
-      localStorage.removeItem('role');
-      window.location.href = '/admin';
-      toast.error('Session expired. Please login again.');
-    }
+    const requestUrl = error.config?.url || '';
     
-    // Handle other error messages
-    const errorMessage = error.response?.data?.message || 'An error occurred';
-    if (error.response?.status !== 401) {
+    // List of public routes that don't require authentication
+    const publicRoutes = [
+      '/visitors',
+      '/public/universities',
+      '/university/',
+      '/institute/'
+    ];
+    
+    // Check if this is a public route
+    const isPublicRoute = publicRoutes.some(route => requestUrl.includes(route));
+    
+    // Handle unauthorized errors - but only redirect for protected routes
+    if (error.response?.status === 401) {
+      if (!isPublicRoute) {
+        // Only redirect to admin for protected routes
+        localStorage.removeItem('token');
+        localStorage.removeItem('role');
+        window.location.href = '/admin';
+        toast.error('Session expired. Please login again.');
+      } else {
+        // For public routes, just show the error without redirecting
+        const errorMessage = error.response?.data?.message || 'Registration failed';
+        toast.error(errorMessage);
+      }
+    } else {
+      // Handle other error messages
+      const errorMessage = error.response?.data?.message || 'An error occurred';
       toast.error(errorMessage);
     }
     

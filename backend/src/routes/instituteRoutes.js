@@ -46,6 +46,6 @@ router.delete('/admins/:id', auth, requireRole("super"), deleteInstituteAdmin);
 router.delete('/locations/:id', auth, deleteLocation);
 router.delete('/paths/:id', auth, deletePath);
 
-router.get('/:id/nav-data', auth, getInstituteNavData);
+router.get('/:id/nav-data', getInstituteNavData);
 
 export default router;
