@@ -224,3 +224,45 @@ export const deletePath = async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 };
+
+
+// controllers/instituteController.js
+export const getInstituteNavData = async (req, res) => {
+  try {
+    const instituteId = req.params.id;
+    
+    // Fetch locations and paths
+    const locations = await Location.find({ institute: instituteId });
+    const paths = await Path.find({ institute: instituteId }).populate('from to');
+    
+    // Transform data for navigation system
+    const campusNodes = {};
+    const destinations = {};
+    
+    locations.forEach(location => {
+      campusNodes[location._id] = {
+        lat: location.coordinates.latitude,
+        lng: location.coordinates.longitude,
+        name: location.name
+      };
+      
+      destinations[location._id] = {
+        node: location._id,
+        name: location.name,
+        icon: location.category === 'building' ? '🏢' : '📍'
+      };
+    });
+    
+    const campusPaths = paths.map(path => ({
+      from: path.from._id,
+      to: path.to._id,
+      distance: path.distance,
+      estimatedTime: path.estimatedTime
+    }));
+    
+    res.json({ campusNodes, campusPaths, destinations });
+  } catch (err) {
+    console.error("Error fetching navigation data:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+};

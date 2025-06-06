@@ -92,7 +92,7 @@ export default function VisitorForm() {
         university: "",
         institute: "",
       });
-      navigate("/navigation");
+      navigate('/navigation', { state: { instituteId: formData.institute } });
     } catch (error) {
       toast.error(error.response?.data?.message || "Failed to submit form");
     }

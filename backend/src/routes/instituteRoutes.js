@@ -10,7 +10,8 @@ import {
   deleteLocation,
   addPath,
   getInstitutePaths,
-  deletePath
+  deletePath,
+  getInstituteNavData,
 } from "../controllers/instituteController.js";
 import { auth } from "../middleware/auth.js";
 import { requireRole } from "../middleware/role.js";
@@ -44,5 +45,7 @@ router.delete('/:id', auth, requireRole("super"), deleteInstitute);
 router.delete('/admins/:id', auth, requireRole("super"), deleteInstituteAdmin);
 router.delete('/locations/:id', auth, deleteLocation);
 router.delete('/paths/:id', auth, deletePath);
+
+router.get('/:id/nav-data', auth, getInstituteNavData);
 
 export default router;
