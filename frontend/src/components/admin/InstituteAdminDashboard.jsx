@@ -1,11 +1,13 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import AddLocation from "./AddLocation.jsx";
+import AddPath from "./AddPath.jsx";
 import api from "../../utils/api.js";
 
 export default function InstituteAdminDashboard() {
   const [activeTab, setActiveTab] = useState("visitors");
   const [locations, setLocations] = useState([]);
+  const [paths, setPaths] = useState([]);
   const [visitors, setVisitors] = useState([]);
   const [institute, setInstitute] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -30,27 +32,36 @@ export default function InstituteAdminDashboard() {
         setLoading(true);
         const token = localStorage.getItem("token");
 
-        // Fetch institute details with university info
+        // Fetch institute details
         const { data: instituteData } = await api.get(
           `/institute/${instituteId}`,
           { headers: { "x-auth-token": token } }
         );
 
-        // Fetch institute-specific locations
+        // Fetch locations
         const { data: locationsData } = await api.get(
           `/institute/${instituteId}/locations`,
           { headers: { "x-auth-token": token } }
         );
 
-        // Fetch institute-specific visitors
+        // Fetch visitors
         const { data: visitorsData } = await api.get(
           `/visitors/institute/${instituteId}`,
           { headers: { "x-auth-token": token } }
         );
 
+        const { data: pathsData } = await api.get(
+          `/institute/${instituteId}/paths`,
+          { headers: { "x-auth-token": token } }
+        );
+        setPaths(pathsData);
+
+        // Fetch paths
+
         setInstitute(instituteData);
         setLocations(locationsData);
         setVisitors(visitorsData);
+
         setError("");
       } catch (error) {
         console.error("Error fetching data:", error);
@@ -67,9 +78,7 @@ export default function InstituteAdminDashboard() {
   const handleDeleteLocation = async (locationId) => {
     try {
       await api.delete(`/institute/locations/${locationId}`, {
-        headers: {
-          "x-auth-token": localStorage.getItem("token"),
-        },
+        headers: { "x-auth-token": localStorage.getItem("token") },
       });
       setLocations(locations.filter((l) => l._id !== locationId));
     } catch (error) {
@@ -81,14 +90,24 @@ export default function InstituteAdminDashboard() {
   const handleDeleteVisitor = async (visitorId) => {
     try {
       await api.delete(`/visitors/${visitorId}`, {
-        headers: {
-          "x-auth-token": localStorage.getItem("token"),
-        },
+        headers: { "x-auth-token": localStorage.getItem("token") },
       });
       setVisitors(visitors.filter((v) => v._id !== visitorId));
     } catch (error) {
       console.error("Error deleting visitor:", error);
       setError("Failed to delete visitor. Please try again.");
+    }
+  };
+
+  const handleDeletePath = async (pathId) => {
+    try {
+      await api.delete(`/institute/paths/${pathId}`, {
+        headers: { "x-auth-token": localStorage.getItem("token") },
+      });
+      setPaths(paths.filter((p) => p._id !== pathId));
+    } catch (error) {
+      console.error("Error deleting path:", error);
+      setError("Failed to delete path. Please try again.");
     }
   };
 
@@ -116,7 +135,13 @@ export default function InstituteAdminDashboard() {
 
   const tabs = [
     { id: "visitors", label: "Visitors", icon: "👥", count: visitors.length },
-    { id: "locations", label: "Locations", icon: "📍", count: locations.length },
+    {
+      id: "locations",
+      label: "Locations",
+      icon: "📍",
+      count: locations.length,
+    },
+    { id: "routes", label: "Routes", icon: "🛣️", count: paths.length }, // New routes tab
   ];
 
   return (
@@ -230,12 +255,19 @@ export default function InstituteAdminDashboard() {
                   <div className="flex items-center space-x-3">
                     <span className="text-2xl">👥</span>
                     <div>
-                      <h2 className="text-xl font-bold text-gray-900">Institute Visitors</h2>
-                      <p className="text-sm text-gray-600">Manage visitor records and information</p>
+                      <h2 className="text-xl font-bold text-gray-900">
+                        Institute Visitors
+                      </h2>
+                      <p className="text-sm text-gray-600">
+                        Manage visitor records and information
+                      </p>
                     </div>
                   </div>
                   <div className="text-sm text-gray-500">
-                    Total: <span className="font-bold text-gray-900">{visitors.length}</span>
+                    Total:{" "}
+                    <span className="font-bold text-gray-900">
+                      {visitors.length}
+                    </span>
                   </div>
                 </div>
               </div>
@@ -245,7 +277,13 @@ export default function InstituteAdminDashboard() {
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50">
                     <tr>
-                      {["Name", "Contact", "Purpose", "Visit Date", "Actions"].map((header) => (
+                      {[
+                        "Name",
+                        "Contact",
+                        "Purpose",
+                        "Visit Date",
+                        "Actions",
+                      ].map((header) => (
                         <th
                           key={header}
                           className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider"
@@ -257,27 +295,41 @@ export default function InstituteAdminDashboard() {
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
                     {visitors.map((visitor) => (
-                      <tr key={visitor._id} className="hover:bg-gray-50 transition-colors">
+                      <tr
+                        key={visitor._id}
+                        className="hover:bg-gray-50 transition-colors"
+                      >
                         <td className="px-6 py-4">
-                          <div className="font-medium text-gray-900">{visitor.name}</div>
+                          <div className="font-medium text-gray-900">
+                            {visitor.name}
+                          </div>
                         </td>
                         <td className="px-6 py-4">
                           <div className="text-gray-600">{visitor.email}</div>
-                          <div className="text-sm text-gray-500">{visitor.mobile}</div>
+                          <div className="text-sm text-gray-500">
+                            {visitor.mobile}
+                          </div>
                         </td>
-                        <td className="px-6 py-4 text-gray-600">{visitor.purpose}</td>
+                        <td className="px-6 py-4 text-gray-600">
+                          {visitor.purpose}
+                        </td>
                         <td className="px-6 py-4 text-gray-600 whitespace-nowrap">
-                          {new Date(visitor.createdAt).toLocaleDateString("en-US", {
-                            year: "numeric",
-                            month: "short",
-                            day: "numeric",
-                          })}
+                          {new Date(visitor.createdAt).toLocaleDateString(
+                            "en-US",
+                            {
+                              year: "numeric",
+                              month: "short",
+                              day: "numeric",
+                            }
+                          )}
                         </td>
                         <td className="px-6 py-4">
                           <button
                             className="text-red-500 hover:text-red-700 font-medium transition-colors"
                             onClick={() => {
-                              if (window.confirm("Delete this visitor record?")) {
+                              if (
+                                window.confirm("Delete this visitor record?")
+                              ) {
                                 handleDeleteVisitor(visitor._id);
                               }
                             }}
@@ -291,8 +343,12 @@ export default function InstituteAdminDashboard() {
                       <tr>
                         <td colSpan="5" className="px-6 py-12 text-center">
                           <div className="text-gray-400 text-6xl mb-4">👥</div>
-                          <p className="text-gray-500 font-medium">No visitors found</p>
-                          <p className="text-sm text-gray-400">Visitor records will appear here</p>
+                          <p className="text-gray-500 font-medium">
+                            No visitors found
+                          </p>
+                          <p className="text-sm text-gray-400">
+                            Visitor records will appear here
+                          </p>
                         </td>
                       </tr>
                     )}
@@ -306,7 +362,10 @@ export default function InstituteAdminDashboard() {
           {activeTab === "locations" && (
             <div className="space-y-8">
               {/* Add Location Form */}
-              <AddLocation instituteId={instituteId} setLocations={setLocations} />
+              <AddLocation
+                instituteId={instituteId}
+                setLocations={setLocations}
+              />
 
               {/* Locations List */}
               <div className="bg-white rounded-2xl shadow-lg">
@@ -316,12 +375,19 @@ export default function InstituteAdminDashboard() {
                     <div className="flex items-center space-x-3">
                       <span className="text-2xl">📍</span>
                       <div>
-                        <h2 className="text-xl font-bold text-gray-900">Institute Locations</h2>
-                        <p className="text-sm text-gray-600">Manage all campus locations and facilities</p>
+                        <h2 className="text-xl font-bold text-gray-900">
+                          Institute Locations
+                        </h2>
+                        <p className="text-sm text-gray-600">
+                          Manage all campus locations and facilities
+                        </p>
                       </div>
                     </div>
                     <div className="text-sm text-gray-500">
-                      Total: <span className="font-bold text-gray-900">{locations.length}</span>
+                      Total:{" "}
+                      <span className="font-bold text-gray-900">
+                        {locations.length}
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -377,7 +443,9 @@ export default function InstituteAdminDashboard() {
                               </div>
 
                               <div className="flex items-center justify-between">
-                                <span className="text-gray-500">Coordinates:</span>
+                                <span className="text-gray-500">
+                                  Coordinates:
+                                </span>
                                 <span className="font-mono text-xs">
                                   ({location.coordinates.latitude.toFixed(2)},{" "}
                                   {location.coordinates.longitude.toFixed(2)})
@@ -399,8 +467,134 @@ export default function InstituteAdminDashboard() {
                   ) : (
                     <div className="text-center py-12">
                       <div className="text-gray-400 text-6xl mb-4">📍</div>
-                      <p className="text-gray-500 font-medium">No locations found</p>
-                      <p className="text-sm text-gray-400">Add your first location above</p>
+                      <p className="text-gray-500 font-medium">
+                        No locations found
+                      </p>
+                      <p className="text-sm text-gray-400">
+                        Add your first location above
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {activeTab === "routes" && (
+            <div className="space-y-8">
+              {/* Add Path Form */}
+              <AddPath
+                instituteId={instituteId}
+                locations={locations}
+                setPaths={setPaths}
+              />
+
+              {/* Paths List */}
+              <div className="bg-white rounded-2xl shadow-lg">
+                <div className="px-6 py-4 border-b border-gray-200">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-3">
+                      <span className="text-2xl">🛣️</span>
+                      <div>
+                        <h2 className="text-xl font-bold text-gray-900">
+                          Navigation Routes
+                        </h2>
+                        <p className="text-sm text-gray-600">
+                          Manage paths between campus locations
+                        </p>
+                      </div>
+                    </div>
+                    <div className="text-sm text-gray-500">
+                      Total:{" "}
+                      <span className="font-bold text-gray-900">
+                        {paths.length}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="p-6">
+                  {paths.length > 0 ? (
+                    <div className="overflow-x-auto">
+                      <table className="min-w-full divide-y divide-gray-200">
+                        <thead className="bg-gray-50">
+                          <tr>
+                            <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                              From
+                            </th>
+                            <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                              To
+                            </th>
+                            <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                              Distance
+                            </th>
+                            <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                              Time
+                            </th>
+                            <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                              Accessibility
+                            </th>
+                            <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                              Actions
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody className="bg-white divide-y divide-gray-200">
+                          {paths.map((path) => (
+                            <tr key={path._id} className="hover:bg-gray-50">
+                              <td className="px-6 py-4 text-gray-900 font-medium">
+                                {path.fromName}
+                              </td>
+                              <td className="px-6 py-4 text-gray-900 font-medium">
+                                {path.toName}
+                              </td>
+                              <td className="px-6 py-4 text-gray-600">
+                                {path.distance
+                                  ? `${path.distance.toFixed(2)} meters`
+                                  : "N/A"}
+                              </td>
+                              <td className="px-6 py-4 text-gray-600">
+                                {path.estimatedTime
+                                  ? `${path.estimatedTime} mins`
+                                  : "N/A"}
+                              </td>
+                              <td className="px-6 py-4">
+                                <span
+                                  className={`px-2 py-1 rounded-full text-xs font-medium ${
+                                    path.accessibilityFriendly
+                                      ? "bg-green-100 text-green-800"
+                                      : "bg-yellow-100 text-yellow-800"
+                                  }`}
+                                >
+                                  {path.accessibilityFriendly ? "Yes" : "No"}
+                                </span>
+                              </td>
+                              <td className="px-6 py-4">
+                                <button
+                                  className="text-red-500 hover:text-red-700 font-medium transition-colors"
+                                  onClick={() => {
+                                    if (window.confirm("Delete this route?")) {
+                                      handleDeletePath(path._id);
+                                    }
+                                  }}
+                                >
+                                  Delete
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : (
+                    <div className="text-center py-12">
+                      <div className="text-gray-400 text-6xl mb-4">🛣️</div>
+                      <p className="text-gray-500 font-medium">
+                        No routes created yet
+                      </p>
+                      <p className="text-sm text-gray-400">
+                        Add your first route above
+                      </p>
                     </div>
                   )}
                 </div>
