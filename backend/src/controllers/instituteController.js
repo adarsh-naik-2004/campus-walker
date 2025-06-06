@@ -1,29 +1,17 @@
-// src/controllers/instituteController.js
 import Location from '../models/Location.js';
 import User from '../models/User.js';
 import Institute from '../models/Institute.js'; 
+import Path from '../models/Path.js';
 import cloudinary from '../config/cloudinary.js';
 
 export const getInstituteById = async (req, res) => {
   try {
-    console.log('Fetching institute with ID:', req.params.id); // Debug log
-    
-    const institute = await Institute.findById(req.params.id)
-      .populate('university');
-
-    if (!institute) {
-      console.log('Institute not found for ID:', req.params.id); // Debug log
-      return res.status(404).json({ message: 'Institute not found' });
-    }
-
-    console.log('Institute found:', institute.name); // Debug log
+    const institute = await Institute.findById(req.params.id).populate('university');
+    if (!institute) return res.status(404).json({ message: 'Institute not found' });
     res.json(institute);
   } catch (err) {
     console.error('Error fetching institute:', err);
-    res.status(500).json({ 
-      message: 'Server error',
-      error: process.env.NODE_ENV === 'development' ? err.message : undefined
-    });
+    res.status(500).json({ message: 'Server error' });
   }
 };
 
@@ -32,21 +20,16 @@ export const addLocation = async (req, res) => {
     const { name, description, floor, category, instituteId, coordinates } = req.body;
     let imageUrl = '';
 
-    // Upload image to Cloudinary if exists
-     if (req.file) {
+    if (req.file) {
       const result = await cloudinary.uploader.upload(
         `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`, 
-        {
-          folder: 'ar-nav/locations'
-        }
+        { folder: 'ar-nav/locations' }
       );
       imageUrl = result.secure_url;
     }
 
     const institute = await Institute.findById(instituteId).populate('university');
-    if (!institute) {
-      return res.status(404).json({ message: 'Institute not found' });
-    }
+    if (!institute) return res.status(404).json({ message: 'Institute not found' });
 
     const location = new Location({
       name,
@@ -67,10 +50,39 @@ export const addLocation = async (req, res) => {
     res.status(201).json(location);
   } catch (err) {
     console.error('Error adding location:', err);
-    res.status(500).json({ 
-      message: 'Server error',
-      error: process.env.NODE_ENV === 'development' ? err.message : undefined
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+export const addPath = async (req, res) => {
+  try {
+    const { from, to, instituteId, waypoints, distance, estimatedTime, accessibilityFriendly } = req.body;
+
+    const institute = await Institute.findById(instituteId).populate('university');
+    if (!institute) return res.status(404).json({ message: 'Institute not found' });
+
+    const fromLocation = await Location.findById(from);
+    const toLocation = await Location.findById(to);
+    if (!fromLocation || !toLocation) {
+      return res.status(404).json({ message: 'Location not found' });
+    }
+
+    const path = new Path({
+      from,
+      to,
+      institute: instituteId,
+      university: institute.university._id,
+      waypoints,
+      distance,
+      estimatedTime,
+      accessibilityFriendly
     });
+
+    await path.save();
+    res.status(201).json(path);
+  } catch (err) {
+    console.error('Error adding path:', err);
+    res.status(500).json({ message: 'Server error' });
   }
 };
 
@@ -84,12 +96,22 @@ export const getLocations = async (req, res) => {
   }
 };
 
+export const getInstitutePaths = async (req, res) => {
+  try {
+    const paths = await Path.find({
+      institute: req.params.id
+    }).populate('from to institute university');
+    
+    res.json(paths);
+  } catch (err) {
+    console.error('Error fetching institute paths:', err);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
 export const getInstituteAdmins = async (req, res) => {
   try {
-    const admins = await User.find({
-      role: 'institute',
-      institute: req.params.id
-    });
+    const admins = await User.find({ role: 'institute', institute: req.params.id });
     res.json(admins);
   } catch (err) {
     console.error('Error fetching institute admins:', err);
@@ -99,10 +121,7 @@ export const getInstituteAdmins = async (req, res) => {
 
 export const getInstituteLocations = async (req, res) => {
   try {
-    const locations = await Location.find({
-      institute: req.params.id
-    }).populate('institute');
-    
+    const locations = await Location.find({ institute: req.params.id }).populate('institute');
     res.json(locations);
   } catch (err) {
     console.error('Error fetching institute locations:', err);
@@ -110,18 +129,14 @@ export const getInstituteLocations = async (req, res) => {
   }
 };
 
-
 export const deleteInstitute = async (req, res) => {
   try {
     const institute = await Institute.findByIdAndDelete(req.params.id);
-    
-    if (!institute) {
-      return res.status(404).json({ message: 'Institute not found' });
-    }
+    if (!institute) return res.status(404).json({ message: 'Institute not found' });
 
-    // Delete associated locations and admins
     await Location.deleteMany({ institute: req.params.id });
     await User.deleteMany({ institute: req.params.id, role: 'institute' });
+    await Path.deleteMany({ institute: req.params.id });
 
     res.json({ message: 'Institute deleted successfully' });
   } catch (err) {
@@ -132,15 +147,8 @@ export const deleteInstitute = async (req, res) => {
 
 export const deleteInstituteAdmin = async (req, res) => {
   try {
-    const admin = await User.findOneAndDelete({
-      _id: req.params.id,
-      role: 'institute'
-    });
-
-    if (!admin) {
-      return res.status(404).json({ message: 'Admin not found' });
-    }
-
+    const admin = await User.findOneAndDelete({ _id: req.params.id, role: 'institute' });
+    if (!admin) return res.status(404).json({ message: 'Admin not found' });
     res.json({ message: 'Admin deleted successfully' });
   } catch (err) {
     console.error('Delete institute admin error:', err);
@@ -151,14 +159,23 @@ export const deleteInstituteAdmin = async (req, res) => {
 export const deleteLocation = async (req, res) => {
   try {
     const location = await Location.findByIdAndDelete(req.params.id);
-    
-    if (!location) {
-      return res.status(404).json({ message: 'Location not found' });
-    }
+    if (!location) return res.status(404).json({ message: 'Location not found' });
 
+    await Path.deleteMany({ $or: [{ from: req.params.id }, { to: req.params.id }] });
     res.json({ message: 'Location deleted successfully' });
   } catch (err) {
     console.error('Delete location error:', err);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+export const deletePath = async (req, res) => {
+  try {
+    const path = await Path.findByIdAndDelete(req.params.id);
+    if (!path) return res.status(404).json({ message: 'Path not found' });
+    res.json({ message: 'Path deleted successfully' });
+  } catch (err) {
+    console.error('Delete path error:', err);
     res.status(500).json({ message: 'Server error' });
   }
 };

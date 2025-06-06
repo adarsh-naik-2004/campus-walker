@@ -1,4 +1,3 @@
-// src/routes/instituteRoutes.js
 import express from "express";
 import {
   getInstituteById,
@@ -8,7 +7,10 @@ import {
   getInstituteLocations,
   deleteInstitute,
   deleteInstituteAdmin,
-  deleteLocation
+  deleteLocation,
+  addPath,
+  getInstitutePaths,
+  deletePath
 } from "../controllers/instituteController.js";
 import { auth } from "../middleware/auth.js";
 import { requireRole } from "../middleware/role.js";
@@ -16,10 +18,8 @@ import upload from "../config/upload.js";
 
 const router = express.Router();
 
-// Get institute by ID
 router.get('/:id', auth, getInstituteById);
 
-// Institute locations routes
 router.post(
   "/locations", 
   auth, 
@@ -30,27 +30,19 @@ router.post(
 router.get("/locations", auth, getLocations);
 router.get("/:id/locations", auth, getInstituteLocations);
 
-// Institute admins route
+router.post(
+  "/paths",
+  auth,
+  requireRole("institute"),
+  addPath
+);
+router.get("/:id/paths", auth, getInstitutePaths);
+
 router.get("/:id/admins", auth, getInstituteAdmins);
 
-router.delete(
-  '/:id',
-  auth,
-  requireRole("super"),
-  deleteInstitute
-);
-
-router.delete(
-  '/admins/:id',
-  auth,
-  requireRole("super"),
-  deleteInstituteAdmin
-);
-
-router.delete(
-  '/locations/:id',
-  auth,
-  deleteLocation
-);
+router.delete('/:id', auth, requireRole("super"), deleteInstitute);
+router.delete('/admins/:id', auth, requireRole("super"), deleteInstituteAdmin);
+router.delete('/locations/:id', auth, deleteLocation);
+router.delete('/paths/:id', auth, deletePath);
 
 export default router;
