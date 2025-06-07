@@ -19,7 +19,7 @@ import upload from "../config/upload.js";
 
 const router = express.Router();
 
-router.get('/:id', auth, getInstituteById);
+router.get('/:id', getInstituteById);
 
 router.post(
   "/locations", 
@@ -29,7 +29,7 @@ router.post(
   addLocation
 );
 router.get("/locations", auth, getLocations);
-router.get("/:id/locations", auth, getInstituteLocations);
+router.get("/:id/locations", getInstituteLocations);
 
 router.post(
   "/paths",
@@ -37,7 +37,7 @@ router.post(
   requireRole("institute"),
   addPath
 );
-router.get("/:id/paths", auth, getInstitutePaths);
+router.get("/:id/paths", getInstitutePaths);
 
 router.get("/:id/admins", auth, getInstituteAdmins);
 

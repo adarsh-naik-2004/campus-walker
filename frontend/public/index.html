@@ -1,0 +1,1530 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, user-scalable=no"
+    />
+    <title>Campus AR Path Navigator</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/aframe@1.4.0/dist/aframe.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/ar.js@3.4.5/dist/aframe-ar.min.js"></script>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        overflow: hidden;
+        background: #000;
+        height: 100vh;
+        width: 100vw;
+        position: relative;
+      }
+
+      .arjs-loader {
+        height: 100%;
+        width: 100%;
+        position: absolute;
+        top: 0;
+        background: linear-gradient(135deg, #1a2a6c, #b21f1f, #1a2a6c);
+        z-index: 9999;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        flex-direction: column;
+        color: white;
+        transition: all 0.5s ease;
+      }
+
+      .arjs-loader h1 {
+        font-size: 1.8em;
+        margin-bottom: 15px;
+        text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+      }
+
+      .arjs-loader div {
+        text-align: center;
+        font-size: 1em;
+        margin: 8px 0;
+        padding: 8px 16px;
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 20px;
+        backdrop-filter: blur(10px);
+        max-width: 90%;
+      }
+
+      .spinner {
+        width: 30px;
+        height: 30px;
+        border: 3px solid rgba(255, 255, 255, 0.3);
+        border-top: 3px solid white;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+        margin: 15px auto;
+      }
+
+      @keyframes spin {
+        0% {
+          transform: rotate(0deg);
+        }
+        100% {
+          transform: rotate(360deg);
+        }
+      }
+
+      #scene {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        z-index: 1;
+      }
+
+      #ui-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 10;
+        pointer-events: none;
+        transition: opacity 0.5s ease;
+      }
+
+      .ui-panel {
+        pointer-events: auto;
+        background: rgba(0, 0, 0, 0.85);
+        backdrop-filter: blur(15px);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        border-radius: 15px;
+        color: white;
+        box-shadow: 0 6px 24px rgba(0, 0, 0, 0.3);
+      }
+
+      #status-panel {
+        position: absolute;
+        top: 15px;
+        left: 15px;
+        right: 15px;
+        padding: 15px;
+        text-align: center;
+      }
+
+      #controls-panel {
+        position: absolute;
+        bottom: 15px;
+        left: 15px;
+        right: 15px;
+        padding: 15px;
+      }
+
+      #distance-display {
+        font-size: 1.6em;
+        font-weight: bold;
+        color: #4caf50;
+        margin-bottom: 8px;
+        text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.5);
+      }
+
+      #direction-display {
+        font-size: 1.1em;
+        color: #ffc107;
+        margin: 8px 0;
+        font-weight: 600;
+      }
+
+      #instruction-display {
+        font-size: 0.95em;
+        color: #e0e0e0;
+        margin: 8px 0;
+      }
+
+      #gps-info {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        margin-top: 10px;
+        font-size: 0.85em;
+      }
+
+      .status-dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        animation: pulse 2s infinite;
+      }
+
+      .status-excellent {
+        background: #4caf50;
+      }
+      .status-good {
+        background: #8bc34a;
+      }
+      .status-moderate {
+        background: #ffc107;
+      }
+      .status-poor {
+        background: #ff5722;
+      }
+
+      @keyframes pulse {
+        0% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0.5;
+        }
+        100% {
+          opacity: 1;
+        }
+      }
+
+      #destination-select {
+        width: 100%;
+        padding: 12px;
+        margin-bottom: 12px;
+        border: none;
+        border-radius: 10px;
+        font-size: 15px;
+        background: rgba(255, 255, 255, 0.1);
+        color: white;
+        backdrop-filter: blur(10px);
+      }
+
+      #destination-select option {
+        background: #333;
+        color: white;
+      }
+
+      .action-button {
+        width: 100%;
+        padding: 14px;
+        border: none;
+        border-radius: 10px;
+        font-size: 16px;
+        font-weight: bold;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        margin: 6px 0;
+        text-transform: uppercase;
+        letter-spacing: 0.8px;
+      }
+
+      #navigate-btn {
+        background: linear-gradient(135deg, #4caf50, #45a049);
+        color: white;
+      }
+
+      #navigate-btn:hover:not(:disabled) {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 15px rgba(76, 175, 80, 0.4);
+      }
+
+      #navigate-btn:disabled {
+        background: #666;
+        cursor: not-allowed;
+        transform: none;
+      }
+
+      #stop-btn {
+        background: linear-gradient(135deg, #f44336, #d32f2f);
+        color: white;
+      }
+
+      #calibrate-btn {
+        background: linear-gradient(135deg, #2196f3, #1976d2);
+        color: white;
+        width: auto;
+        padding: 8px 16px;
+        font-size: 13px;
+      }
+
+      .hidden {
+        display: none !important;
+      }
+
+      #compass {
+        position: absolute;
+        top: 50%;
+        right: 15px;
+        transform: translateY(-50%);
+        width: 70px;
+        height: 70px;
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        border-radius: 50%;
+        background: rgba(0, 0, 0, 0.5);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 22px;
+        color: #4caf50;
+        backdrop-filter: blur(10px);
+      }
+
+      #compass-needle {
+        position: absolute;
+        width: 2px;
+        height: 25px;
+        background: #ff5722;
+        transform-origin: bottom center;
+        transition: transform 0.3s ease;
+      }
+
+      .ar-arrow {
+        animation: bounce 2s infinite;
+      }
+
+      @keyframes bounce {
+        0%,
+        20%,
+        50%,
+        80%,
+        100% {
+          transform: translateY(0);
+        }
+        40% {
+          transform: translateY(-8px);
+        }
+        60% {
+          transform: translateY(-4px);
+        }
+      }
+
+      #map-overlay {
+        position: absolute;
+        top: 80px;
+        left: 15px;
+        width: 300px;
+        height: 300px;
+        background: rgba(0, 0, 0, 0.7);
+        border-radius: 15px;
+        z-index: 15;
+        padding: 15px;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+        display: flex;
+        flex-direction: column;
+      }
+
+      #map-title {
+        color: white;
+        margin-bottom: 10px;
+        text-align: center;
+        font-weight: bold;
+      }
+
+      #campus-map {
+        flex: 1;
+        background: #1e3c72;
+        border-radius: 10px;
+        position: relative;
+        overflow: hidden;
+      }
+
+      .map-node {
+        position: absolute;
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        background: #4caf50;
+        transform: translate(-50%, -50%);
+        border: 2px solid white;
+        z-index: 2;
+      }
+
+      .map-path {
+        position: absolute;
+        height: 4px;
+        background: #ffc107;
+        transform-origin: left center;
+        z-index: 1;
+      }
+
+      .map-user {
+        position: absolute;
+        width: 16px;
+        height: 16px;
+        border-radius: 50%;
+        background: #2196f3;
+        transform: translate(-50%, -50%);
+        border: 2px solid white;
+        z-index: 3;
+        box-shadow: 0 0 10px #2196f3;
+      }
+
+      .map-destination {
+        position: absolute;
+        width: 16px;
+        height: 16px;
+        border-radius: 50%;
+        background: #f44336;
+        transform: translate(-50%, -50%);
+        border: 2px solid white;
+        z-index: 3;
+        box-shadow: 0 0 10px #f44336;
+      }
+
+      .map-route {
+        position: absolute;
+        height: 4px;
+        background: #4caf50;
+        transform-origin: left center;
+        z-index: 1;
+      }
+
+      #map-toggle {
+        position: absolute;
+        top: 15px;
+        left: 15px;
+        z-index: 20;
+        background: rgba(0, 0, 0, 0.7);
+        border: 1px solid rgba(255, 255, 255, 0.3);
+        border-radius: 5px;
+        padding: 8px 12px;
+        color: white;
+        cursor: pointer;
+        transition: all 0.3s;
+        pointer-events: auto;
+        font-size: 0.9em;
+      }
+
+      #map-toggle:hover {
+        background: rgba(0, 0, 0, 0.9);
+      }
+
+      .map-label {
+        position: absolute;
+        color: white;
+        font-size: 10px;
+        background: rgba(0, 0, 0, 0.7);
+        padding: 2px 5px;
+        border-radius: 4px;
+        white-space: nowrap;
+        z-index: 4;
+      }
+
+      #camera-container {
+        position: absolute;
+        top: 15px;
+        right: 15px;
+        width: 150px;
+        height: 100px;
+        border-radius: 10px;
+        overflow: hidden;
+        z-index: 15;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+        border: 2px solid rgba(255, 255, 255, 0.2);
+        transition: all 0.5s ease;
+      }
+
+      #camera-container.full-screen {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        border-radius: 0;
+        z-index: 3;
+        border: none;
+      }
+
+      #camera-feed {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }
+
+      #debug-panel {
+        position: absolute;
+        bottom: 200px;
+        left: 15px;
+        background: rgba(0, 0, 0, 0.7);
+        color: white;
+        padding: 10px;
+        border-radius: 8px;
+        font-size: 12px;
+        max-width: 300px;
+        z-index: 20;
+        display: none;
+      }
+
+      /* NEW: Show UI button */
+      #show-ui-btn {
+        position: absolute;
+        top: 15px;
+        right: 100px;
+        z-index: 20;
+        background: rgba(0, 0, 0, 0.7);
+        border: 1px solid rgba(255, 255, 255, 0.3);
+        border-radius: 5px;
+        padding: 8px 12px;
+        color: white;
+        cursor: pointer;
+        transition: all 0.3s;
+        pointer-events: auto;
+        font-size: 0.9em;
+      }
+
+      #show-ui-btn:hover {
+        background: rgba(0, 0, 0, 0.9);
+      }
+
+      body.navigation-active
+        #ui-overlay
+        > *:not(#camera-container):not(#compass):not(#show-ui-btn):not(
+          #map-overlay
+        ):not(#map-toggle) {
+        opacity: 0.3;
+        pointer-events: none;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="arjs-loader">
+      <h1>🧭 Campus AR Path Navigator</h1>
+      <div class="spinner"></div>
+      <div id="loading-status">Initializing navigation system...</div>
+      <div id="permission-status">Requesting location permissions...</div>
+    </div>
+
+    <a-scene
+      id="scene"
+      vr-mode-ui="enabled: false"
+      arjs="sourceType: webcam; debugUIEnabled: false; detectionMode: mono_and_matrix; matrixCodeType: 3x3; trackingMethod: best; sourceWidth: 1280; sourceHeight: 720; displayWidth: 1280; displayHeight: 720;"
+      renderer="logarithmicDepthBuffer: true; precision: medium; antialias: true;"
+      camera="fov: 60;"
+    >
+      <a-camera
+        gps-camera="gpsMinDistance: 5; gpsTimeInterval: 1000;"
+        rotation-reader
+        arjs-device-orientation-controls
+      ></a-camera>
+
+      <a-assets>
+        <a-cone
+          id="arrow-cone"
+          color="#4CAF50"
+          radius-bottom="0.5"
+          radius-top="0"
+          height="2"
+        ></a-cone>
+        <a-cylinder
+          id="arrow-shaft"
+          color="#4CAF50"
+          radius="0.1"
+          height="1"
+        ></a-cylinder>
+        <a-cone
+          id="turn-arrow"
+          color="#FFC107"
+          radius-bottom="0.7"
+          radius-top="0"
+          height="3"
+        ></a-cone>
+      </a-assets>
+    </a-scene>
+
+    <div id="ui-overlay">
+      <button id="map-toggle">Show Campus Map</button>
+      <button id="show-ui-btn">Show UI</button>
+
+      <div id="camera-container" class="hidden">
+        <video id="camera-feed" autoplay muted playsinline></video>
+      </div>
+
+      <div id="status-panel" class="ui-panel hidden">
+        <div id="distance-display">Select destination</div>
+        <div id="direction-display"></div>
+        <div id="instruction-display">Choose where you want to navigate</div>
+        <div id="gps-info">
+          <span class="status-dot status-poor"></span>
+          <span id="gps-status-text">Acquiring GPS signal...</span>
+        </div>
+      </div>
+
+      <div id="controls-panel" class="ui-panel hidden">
+        <select id="destination-select">
+          <option value="">🎯 Select Destination</option>
+          <option value="main_gate">📚 Main Gate</option>
+          <option value="library">📖 Library</option>
+          <option value="cafeteria">🍔 Cafeteria</option>
+          <option value="gym">🏋️‍♂️ Gym</option>
+          <option value="auditorium">🎭 Auditorium</option>
+        </select>
+
+        <button id="navigate-btn" class="action-button" disabled>
+          Start Navigation
+        </button>
+
+        <button id="stop-btn" class="action-button hidden">
+          Stop Navigation
+        </button>
+
+        <button id="calibrate-btn" class="action-button">
+          📱 Calibrate Compass
+        </button>
+      </div>
+
+      <div id="compass" class="hidden">
+        <div id="compass-needle"></div>
+        <span>N</span>
+      </div>
+
+      <div id="map-overlay" class="hidden">
+        <div id="map-title">Campus Map</div>
+        <div id="campus-map"></div>
+      </div>
+
+      <div id="debug-panel">
+        <div><strong>Debug Information</strong></div>
+        <div id="debug-info">Loading...</div>
+      </div>
+    </div>
+
+    <script>
+      let CAMPUS_NODES = {};
+      let CAMPUS_PATHS = [];
+      let DESTINATIONS = {};
+
+      // Category to icon mapping
+      const CATEGORY_ICONS = {
+        building: "🏢",
+        entrance: "🚪",
+        parking: "🅿️",
+        landmark: "📍",
+        facility: "🏗️",
+        emergency: "🆘",
+        library: "📚",
+        cafeteria: "🍔",
+        gym: "🏋️‍♂️",
+        auditorium: "🎭",
+        main_gate: "🏛️",
+        classroom: "📝",
+        office: "💼",
+        lab: "🔬",
+        toilet: "🚻",
+        garden: "🌳",
+      };
+      let userPosition = {
+        lat: 21.28912,
+        lng: 81.700358,
+        accuracy: 5,
+        heading: 0,
+        speed: 0,
+      };
+
+      let userHeading = 0;
+      let selectedDestination = null;
+      let isNavigating = false;
+      let arMarkers = [];
+      let gpsAccuracy = Infinity;
+      let compassCalibrated = false;
+      let lastUpdate = 0;
+      let watchId = null;
+      let simulationMode = false;
+      let currentRoute = [];
+      let pathArrows = [];
+      let cameraStream = null;
+      let uiVisible = true; // NEW: Track UI visibility state
+
+      const elements = {
+        loader: document.querySelector(".arjs-loader"),
+        loadingStatus: document.getElementById("loading-status"),
+        permissionStatus: document.getElementById("permission-status"),
+        statusPanel: document.getElementById("status-panel"),
+        controlsPanel: document.getElementById("controls-panel"),
+        compass: document.getElementById("compass"),
+        compassNeedle: document.getElementById("compass-needle"),
+        mapOverlay: document.getElementById("map-overlay"),
+        mapToggle: document.getElementById("map-toggle"),
+        campusMap: document.getElementById("campus-map"),
+        cameraContainer: document.getElementById("camera-container"),
+        cameraFeed: document.getElementById("camera-feed"),
+        debugPanel: document.getElementById("debug-panel"),
+        debugInfo: document.getElementById("debug-info"),
+        destinationSelect: document.getElementById("destination-select"),
+        navigateBtn: document.getElementById("navigate-btn"),
+        stopBtn: document.getElementById("stop-btn"),
+        calibrateBtn: document.getElementById("calibrate-btn"),
+        distanceDisplay: document.getElementById("distance-display"),
+        directionDisplay: document.getElementById("direction-display"),
+        instructionDisplay: document.getElementById("instruction-display"),
+        gpsStatusText: document.getElementById("gps-status-text"),
+        statusDot: document.querySelector(".status-dot"),
+        scene: document.getElementById("scene"),
+        showUiBtn: document.getElementById("show-ui-btn"), // NEW: Show UI button
+      };
+
+      function calculateDistance(lat1, lng1, lat2, lng2) {
+        const R = 6371000;
+        const dLat = ((lat2 - lat1) * Math.PI) / 180;
+        const dLng = ((lng2 - lng1) * Math.PI) / 180;
+        const a =
+          Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+          Math.cos((lat1 * Math.PI) / 180) *
+            Math.cos((lat2 * Math.PI) / 180) *
+            Math.sin(dLng / 2) *
+            Math.sin(dLng / 2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        return R * c;
+      }
+
+      function calculateBearing(lat1, lng1, lat2, lng2) {
+        const dLng = ((lng2 - lng1) * Math.PI) / 180;
+        const lat1Rad = (lat1 * Math.PI) / 180;
+        const lat2Rad = (lat2 * Math.PI) / 180;
+        const y = Math.sin(dLng) * Math.cos(lat2Rad);
+        const x =
+          Math.cos(lat1Rad) * Math.sin(lat2Rad) -
+          Math.sin(lat1Rad) * Math.cos(lat2Rad) * Math.cos(dLng);
+        const bearing = (Math.atan2(y, x) * 180) / Math.PI;
+        return (bearing + 360) % 360;
+      }
+
+      function bearingToDirection(bearing) {
+        const directions = [
+          "North",
+          "North-East",
+          "East",
+          "South-East",
+          "South",
+          "South-West",
+          "West",
+          "North-West",
+        ];
+        const index = Math.round(bearing / 45) % 8;
+        return directions[index];
+      }
+
+      function findNearestNode(lat, lng) {
+        let minDistance = Infinity;
+        let nearestNode = null;
+
+        for (const [id, node] of Object.entries(CAMPUS_NODES)) {
+          const distance = calculateDistance(lat, lng, node.lat, node.lng);
+          if (distance < minDistance) {
+            minDistance = distance;
+            nearestNode = { id, ...node };
+          }
+        }
+
+        return nearestNode;
+      }
+
+      function findShortestPath(startNodeId, endNodeId) {
+        const graph = {};
+
+        for (const nodeId in CAMPUS_NODES) {
+          graph[nodeId] = [];
+        }
+
+        for (const path of CAMPUS_PATHS) {
+          graph[path.from].push({ node: path.to, distance: path.distance });
+          graph[path.to].push({ node: path.from, distance: path.distance });
+        }
+
+        const distances = {};
+        const previous = {};
+        const queue = [];
+
+        for (const nodeId in graph) {
+          if (nodeId === startNodeId) {
+            distances[nodeId] = 0;
+          } else {
+            distances[nodeId] = Infinity;
+          }
+          previous[nodeId] = null;
+          queue.push(nodeId);
+        }
+
+        while (queue.length > 0) {
+          let minNode = null;
+          for (const nodeId of queue) {
+            if (minNode === null || distances[nodeId] < distances[minNode]) {
+              minNode = nodeId;
+            }
+          }
+
+          queue.splice(queue.indexOf(minNode), 1);
+
+          if (minNode === endNodeId) {
+            break;
+          }
+
+          for (const neighbor of graph[minNode]) {
+            const alt = distances[minNode] + neighbor.distance;
+            if (alt < distances[neighbor.node]) {
+              distances[neighbor.node] = alt;
+              previous[neighbor.node] = minNode;
+            }
+          }
+        }
+
+        const path = [];
+        let current = endNodeId;
+        while (current !== null) {
+          path.unshift(current);
+          current = previous[current];
+        }
+
+        return path;
+      }
+
+      function calculateRoute() {
+        if (!userPosition || !selectedDestination) return [];
+
+        const startNode = findNearestNode(userPosition.lat, userPosition.lng);
+        const endNodeId = DESTINATIONS[selectedDestination].node;
+
+        return findShortestPath(startNode.id, endNodeId);
+      }
+
+      function createArrowAtPosition(
+        lat,
+        lng,
+        bearing,
+        size = 0.5,
+        height = 2
+      ) {
+        const arrow = document.createElement("a-entity");
+        arrow.classList.add("ar-arrow");
+        arrow.setAttribute("gps-entity-place", {
+          latitude: lat,
+          longitude: lng,
+        });
+
+        const arrowVisual = document.createElement("a-entity");
+        arrowVisual.setAttribute(
+          "geometry",
+          `primitive: cone; radiusBottom: ${size}; radiusTop: 0; height: ${height}`
+        );
+
+        // Use different color for accessible paths
+        const color = path.accessibilityFriendly ? "#2196F3" : "#4CAF50";
+
+        arrowVisual.setAttribute("material", `color: ${color}`);
+        arrowVisual.setAttribute("rotation", `0 ${bearing} 0`);
+        arrowVisual.setAttribute("position", "0 1.5 0");
+        arrowVisual.setAttribute(
+          "animation",
+          "property: position; to: 0 2.5 0; dir: alternate; loop: true; dur: 1500"
+        );
+
+        arrow.appendChild(arrowVisual);
+        elements.scene.appendChild(arrow);
+        pathArrows.push(arrow);
+      }
+
+      function createPathArrows() {
+        clearPathArrows();
+
+        for (let i = 0; i < currentRoute.length - 1; i++) {
+          const fromNodeId = currentRoute[i];
+          const toNodeId = currentRoute[i + 1];
+
+          // Find the path between these nodes
+          const path = CAMPUS_PATHS.find(
+            (p) =>
+              (p.from === fromNodeId && p.to === toNodeId) ||
+              (p.to === fromNodeId && p.from === toNodeId)
+          );
+
+          if (!path) continue;
+
+          const fromNode = CAMPUS_NODES[fromNodeId];
+          const toNode = CAMPUS_NODES[toNodeId];
+
+          if (!fromNode || !toNode) continue;
+
+          // Create arrows for the entire path
+          const points = [
+            { lat: fromNode.lat, lng: fromNode.lng },
+            ...(path.waypoints || []),
+            { lat: toNode.lat, lng: toNode.lng },
+          ];
+
+          for (let j = 0; j < points.length - 1; j++) {
+            const start = points[j];
+            const end = points[j + 1];
+
+            const bearing = calculateBearing(
+              start.lat,
+              start.lng,
+              end.lat,
+              end.lng
+            );
+
+            const distance = calculateDistance(
+              start.lat,
+              start.lng,
+              end.lat,
+              end.lng
+            );
+
+            // Create arrow at start point
+            createArrowAtPosition(start.lat, start.lng, bearing);
+
+            // Create intermediate arrows for long segments
+            if (distance > 30) {
+              const numArrows = Math.min(Math.floor(distance / 20), 3);
+              for (let k = 1; k <= numArrows; k++) {
+                const progress = k / (numArrows + 1);
+                const interLat = start.lat + (end.lat - start.lat) * progress;
+                const interLng = start.lng + (end.lng - start.lng) * progress;
+
+                createArrowAtPosition(interLat, interLng, bearing, 0.4, 1.5);
+              }
+            }
+          }
+        }
+      }
+
+      function clearPathArrows() {
+        pathArrows.forEach((arrow) => {
+          if (arrow.parentNode === elements.scene) {
+            elements.scene.removeChild(arrow);
+          }
+        });
+        pathArrows = [];
+      }
+
+      function renderCampusMap() {
+        elements.campusMap.innerHTML = "";
+
+        const mapWidth = elements.campusMap.clientWidth;
+        const mapHeight = elements.campusMap.clientHeight;
+
+        let minLat = Infinity,
+          maxLat = -Infinity;
+        let minLng = Infinity,
+          maxLng = -Infinity;
+
+        for (const node of Object.values(CAMPUS_NODES)) {
+          if (node.lat < minLat) minLat = node.lat;
+          if (node.lat > maxLat) maxLat = node.lat;
+          if (node.lng < minLng) minLng = node.lng;
+          if (node.lng > maxLng) maxLng = node.lng;
+        }
+
+        const latPadding = (maxLat - minLat) * 0.1;
+        const lngPadding = (maxLng - minLng) * 0.1;
+
+        minLat -= latPadding;
+        maxLat += latPadding;
+        minLng -= lngPadding;
+        maxLng += lngPadding;
+
+        const latToY = (lat) => {
+          return mapHeight - ((lat - minLat) / (maxLat - minLat)) * mapHeight;
+        };
+
+        const lngToX = (lng) => {
+          return ((lng - minLng) / (maxLng - minLng)) * mapWidth;
+        };
+
+        for (const path of CAMPUS_PATHS) {
+          const fromNode = CAMPUS_NODES[path.from];
+          const toNode = CAMPUS_NODES[path.to];
+
+          if (!fromNode || !toNode) continue;
+
+          const x1 = lngToX(fromNode.lng);
+          const y1 = latToY(fromNode.lat);
+          const x2 = lngToX(toNode.lng);
+          const y2 = latToY(toNode.lat);
+
+          const dx = x2 - x1;
+          const dy = y2 - y1;
+          const distance = Math.sqrt(dx * dx + dy * dy);
+          const angle = (Math.atan2(dy, dx) * 180) / Math.PI;
+
+          const pathElem = document.createElement("div");
+          pathElem.className = "map-path";
+          pathElem.style.width = distance + "px";
+          pathElem.style.left = x1 + "px";
+          pathElem.style.top = y1 + "px";
+          pathElem.style.transform = `rotate(${angle}deg)`;
+          elements.campusMap.appendChild(pathElem);
+        }
+
+        for (const [id, node] of Object.entries(CAMPUS_NODES)) {
+          const x = lngToX(node.lng);
+          const y = latToY(node.lat);
+
+          const nodeElem = document.createElement("div");
+          nodeElem.className = "map-node";
+          nodeElem.style.left = x + "px";
+          nodeElem.style.top = y + "px";
+          nodeElem.title = node.name;
+          elements.campusMap.appendChild(nodeElem);
+
+          const label = document.createElement("div");
+          label.className = "map-label";
+          label.textContent = node.name;
+          label.style.left = x + 10 + "px";
+          label.style.top = y - 10 + "px";
+          elements.campusMap.appendChild(label);
+        }
+
+        if (userPosition && userPosition.lat && userPosition.lng) {
+          const x = lngToX(userPosition.lng);
+          const y = latToY(userPosition.lat);
+
+          const userElem = document.createElement("div");
+          userElem.className = "map-user";
+          userElem.style.left = x + "px";
+          userElem.style.top = y + "px";
+          elements.campusMap.appendChild(userElem);
+        }
+
+        if (isNavigating && selectedDestination) {
+          const destNode = CAMPUS_NODES[DESTINATIONS[selectedDestination].node];
+          if (destNode) {
+            const x = lngToX(destNode.lng);
+            const y = latToY(destNode.lat);
+
+            const destElem = document.createElement("div");
+            destElem.className = "map-destination";
+            destElem.style.left = x + "px";
+            destElem.style.top = y + "px";
+            elements.campusMap.appendChild(destElem);
+          }
+        }
+
+        if (isNavigating && currentRoute.length > 1) {
+          for (let i = 0; i < currentRoute.length - 1; i++) {
+            const fromNode = CAMPUS_NODES[currentRoute[i]];
+            const toNode = CAMPUS_NODES[currentRoute[i + 1]];
+
+            if (!fromNode || !toNode) continue;
+
+            const x1 = lngToX(fromNode.lng);
+            const y1 = latToY(fromNode.lat);
+            const x2 = lngToX(toNode.lng);
+            const y2 = latToY(toNode.lat);
+
+            const dx = x2 - x1;
+            const dy = y2 - y1;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            const angle = (Math.atan2(dy, dx) * 180) / Math.PI;
+
+            const routeElem = document.createElement("div");
+            routeElem.className = "map-route";
+            routeElem.style.width = distance + "px";
+            routeElem.style.left = x1 + "px";
+            routeElem.style.top = y1 + "px";
+            routeElem.style.transform = `rotate(${angle}deg)`;
+            elements.campusMap.appendChild(routeElem);
+          }
+        }
+      }
+
+      // NEW: Toggle UI visibility during navigation
+      function toggleUiVisibility() {
+        uiVisible = !uiVisible;
+        console.log("Toggling UI, now visible:", uiVisible);
+
+        if (uiVisible) {
+          elements.showUiBtn.textContent = "Hide UI";
+          elements.statusPanel.classList.remove("hidden");
+          elements.controlsPanel.classList.remove("hidden");
+          elements.stopBtn.classList.remove("hidden");
+        } else {
+          elements.showUiBtn.textContent = "Show UI";
+          elements.statusPanel.classList.add("hidden");
+          elements.controlsPanel.classList.add("hidden");
+          elements.stopBtn.classList.add("hidden");
+        }
+      }
+
+      function startNavigation() {
+        if (!selectedDestination || !userPosition) return;
+
+        isNavigating = true;
+        uiVisible = false; // Start with UI hidden
+        elements.navigateBtn.classList.add("hidden");
+        elements.stopBtn.classList.remove("hidden");
+        elements.showUiBtn.classList.remove("hidden");
+        elements.showUiBtn.textContent = "Show UI";
+
+        // Hide UI elements initially
+        elements.statusPanel.classList.add("hidden");
+        elements.controlsPanel.classList.add("hidden");
+        elements.stopBtn.classList.add("hidden");
+
+        currentRoute = calculateRoute();
+        createPathArrows();
+
+        elements.cameraContainer.classList.add("full-screen");
+        document.body.classList.add("navigation-active");
+
+        updateNavigation();
+      }
+
+      function stopNavigation() {
+        isNavigating = false;
+        uiVisible = true;
+        elements.navigateBtn.classList.remove("hidden");
+        elements.stopBtn.classList.add("hidden");
+        elements.showUiBtn.classList.add("hidden");
+
+        // Show UI elements again
+        elements.statusPanel.classList.remove("hidden");
+        elements.controlsPanel.classList.remove("hidden");
+
+        clearPathArrows();
+
+        elements.distanceDisplay.textContent = "Navigation stopped";
+        elements.directionDisplay.textContent = "";
+        elements.instructionDisplay.textContent =
+          "Select a destination to navigate";
+
+        elements.cameraContainer.classList.remove("full-screen");
+        document.body.classList.remove("navigation-active");
+      }
+
+      function updateNavigation() {
+        if (!isNavigating || !userPosition || !selectedDestination) return;
+
+        const destination = DESTINATIONS[selectedDestination];
+        const destNode = CAMPUS_NODES[destination.node];
+
+        if (!destNode) return;
+
+        const distance = calculateDistance(
+          userPosition.lat,
+          userPosition.lng,
+          destNode.lat,
+          destNode.lng
+        );
+
+        const bearing = calculateBearing(
+          userPosition.lat,
+          userPosition.lng,
+          destNode.lat,
+          destNode.lng
+        );
+
+        const direction = bearingToDirection(bearing);
+
+        if (distance < 10) {
+          elements.distanceDisplay.textContent = "🎯 Arrived!";
+          elements.directionDisplay.textContent =
+            "You've reached your destination";
+          elements.instructionDisplay.textContent = `Welcome to ${destination.name}`;
+          setTimeout(() => stopNavigation(), 3000);
+        } else if (distance < 50) {
+          elements.distanceDisplay.textContent = `${Math.round(
+            distance
+          )}m away`;
+          elements.directionDisplay.textContent = `Almost there! Head ${direction}`;
+          elements.instructionDisplay.textContent =
+            "Look for the green AR markers";
+        } else {
+          elements.distanceDisplay.textContent = `${Math.round(distance)}m to ${
+            destination.icon
+          } ${destination.name}`;
+          elements.directionDisplay.textContent = `Head ${direction}`;
+          elements.instructionDisplay.textContent =
+            "Follow the AR arrows to your destination";
+        }
+
+        renderCampusMap();
+      }
+
+      function startGPSTracking() {
+        const options = {
+          enableHighAccuracy: true,
+          maximumAge: 2000,
+          timeout: 10000,
+        };
+
+        watchId = navigator.geolocation.watchPosition(
+          handlePositionUpdate,
+          handlePositionError,
+          options
+        );
+
+        if (window.DeviceOrientationEvent) {
+          window.addEventListener("deviceorientation", handleOrientationUpdate);
+        } else {
+          setInterval(() => {
+            userHeading = (userHeading + 2) % 360;
+            updateCompass();
+          }, 100);
+        }
+      }
+
+      function handlePositionUpdate(position) {
+        const now = Date.now();
+        if (now - lastUpdate < 1000) return;
+
+        userPosition = {
+          lat: position.coords.latitude,
+          lng: position.coords.longitude,
+          accuracy: position.coords.accuracy,
+          heading: position.coords.heading || userHeading,
+          speed: position.coords.speed || 0,
+          timestamp: position.timestamp,
+        };
+
+        gpsAccuracy = position.coords.accuracy;
+        lastUpdate = now;
+
+        updateGPSStatus();
+        updateDebugInfo();
+
+        if (isNavigating) {
+          currentRoute = calculateRoute();
+          createPathArrows();
+          updateNavigation();
+        }
+
+        renderCampusMap();
+      }
+
+      function handlePositionError(error) {
+        console.error("GPS Error:", error);
+        elements.gpsStatusText.textContent = `GPS Error: ${error.message}`;
+        elements.statusDot.className = "status-dot status-poor";
+        updateDebugInfo();
+      }
+
+      function handleOrientationUpdate(event) {
+        if (event.alpha !== null) {
+          userHeading = event.alpha;
+          updateCompass();
+          updateDebugInfo();
+        }
+      }
+
+      function updateGPSStatus() {
+        let statusText, statusClass;
+
+        if (gpsAccuracy < 5) {
+          statusText = `Excellent GPS (±${Math.round(gpsAccuracy)}m)`;
+          statusClass = "status-excellent";
+        } else if (gpsAccuracy < 10) {
+          statusText = `Good GPS (±${Math.round(gpsAccuracy)}m)`;
+          statusClass = "status-good";
+        } else if (gpsAccuracy < 20) {
+          statusText = `Moderate GPS (±${Math.round(gpsAccuracy)}m)`;
+          statusClass = "status-moderate";
+        } else {
+          statusText = `Poor GPS (±${Math.round(gpsAccuracy)}m)`;
+          statusClass = "status-poor";
+        }
+
+        elements.gpsStatusText.textContent = statusText;
+        elements.statusDot.className = `status-dot ${statusClass}`;
+      }
+
+      function updateCompass() {
+        if (elements.compassNeedle) {
+          elements.compassNeedle.style.transform = `rotate(${userHeading}deg)`;
+        }
+      }
+
+      function updateDebugInfo() {
+        if (!elements.debugPanel) return;
+
+        const debugContent = `
+                <div>Lat: ${userPosition.lat.toFixed(6)}</div>
+                <div>Lng: ${userPosition.lng.toFixed(6)}</div>
+                <div>Accuracy: ${
+                  userPosition.accuracy
+                    ? userPosition.accuracy.toFixed(1) + "m"
+                    : "N/A"
+                }</div>
+                <div>Heading: ${userHeading.toFixed(1)}°</div>
+                <div>Speed: ${
+                  userPosition.speed
+                    ? (userPosition.speed * 3.6).toFixed(1) + " km/h"
+                    : "N/A"
+                }</div>
+                <div>Destination: ${selectedDestination || "None"}</div>
+                <div>Navigation: ${isNavigating ? "Active" : "Inactive"}</div>
+            `;
+
+        elements.debugInfo.innerHTML = debugContent;
+      }
+
+      async function startCamera() {
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({
+            video: {
+              facingMode: "environment",
+              width: { ideal: 1280 },
+              height: { ideal: 720 },
+            },
+          });
+
+          elements.cameraFeed.srcObject = stream;
+          elements.cameraContainer.classList.remove("hidden");
+
+          cameraStream = stream;
+          return stream;
+        } catch (error) {
+          console.error("Camera error:", error);
+          elements.loadingStatus.textContent = `Camera Error: ${error.message}`;
+
+          elements.permissionStatus.innerHTML = `
+                    Camera access required!<br>
+                    <button id="retry-camera" style="margin-top:10px; padding:5px 10px;">
+                        Retry Camera Access
+                    </button>
+                `;
+          document
+            .getElementById("retry-camera")
+            .addEventListener("click", initialize);
+          throw error;
+        }
+      }
+
+      async function fetchCampusData(instituteId) {
+        try {
+          // Fetch locations
+          const locationsRes = await fetch(
+            `/institute/${instituteId}/locations`
+          );
+          const locations = await locationsRes.json();
+
+          // Format locations
+          locations.forEach((loc) => {
+            CAMPUS_NODES[loc._id] = {
+              lat: loc.coordinates.latitude,
+              lng: loc.coordinates.longitude,
+              name: loc.name,
+              category: loc.category,
+            };
+          });
+
+          // Fetch paths
+          const pathsRes = await fetch(`/institute/${instituteId}/paths`);
+          const paths = await pathsRes.json();
+
+          // Format paths
+          CAMPUS_PATHS = paths.map((path) => ({
+            from: path.from,
+            to: path.to,
+            distance: path.distance,
+            waypoints: path.waypoints || [],
+            accessibilityFriendly: path.accessibilityFriendly,
+          }));
+
+          // Create destinations
+          locations.forEach((loc) => {
+            DESTINATIONS[loc._id] = {
+              node: loc._id,
+              name: loc.name,
+              icon: CATEGORY_ICONS[loc.category] || "📍",
+            };
+          });
+
+          return true;
+        } catch (error) {
+          console.error("Failed to fetch campus data:", error);
+          throw new Error("Failed to load campus navigation data");
+        }
+      }
+
+      function populateDestinationSelect() {
+        const select = elements.destinationSelect;
+        select.innerHTML = '<option value="">🎯 Select Destination</option>';
+
+        // Group by category
+        const categories = {};
+        Object.entries(DESTINATIONS).forEach(([id, dest]) => {
+          const category = CAMPUS_NODES[id].category;
+          if (!categories[category]) categories[category] = [];
+          categories[category].push({ id, ...dest });
+        });
+
+        // Add category groups to select
+        Object.entries(categories).forEach(([category, items]) => {
+          const group = document.createElement("optgroup");
+          group.label = `${CATEGORY_ICONS[category] || "📍"} ${
+            category.charAt(0).toUpperCase() + category.slice(1)
+          }`;
+
+          items.forEach((dest) => {
+            const option = document.createElement("option");
+            option.value = dest.id;
+            option.textContent = `${dest.icon} ${dest.name}`;
+            group.appendChild(option);
+          });
+
+          select.appendChild(group);
+        });
+      }
+
+      async function initialize() {
+        try {
+          elements.loadingStatus.textContent = "Initializing AR navigation...";
+
+          // Get institute ID from localStorage
+          const instituteId = localStorage.getItem("instituteId");
+          if (!instituteId) {
+            throw new Error("No institute selected. Please register first.");
+          }
+
+          elements.loadingStatus.textContent = "Loading campus data...";
+          await fetchCampusData(instituteId);
+
+          elements.loadingStatus.textContent = "Requesting location access...";
+          await requestLocationPermission();
+
+          elements.loadingStatus.textContent = "Requesting camera access...";
+          await startCamera();
+
+          startGPSTracking();
+          setupEventListeners();
+          populateDestinationSelect();
+
+          setTimeout(() => {
+            elements.loader.style.opacity = "0";
+
+            setTimeout(() => {
+              elements.loader.classList.add("hidden");
+
+              if (uiVisible) {
+                elements.statusPanel.classList.remove("hidden");
+                elements.controlsPanel.classList.remove("hidden");
+                elements.stopBtn.classList.remove("hidden");
+              } else {
+                elements.statusPanel.classList.add("hidden");
+                elements.controlsPanel.classList.add("hidden");
+                elements.stopBtn.classList.add("hidden");
+              }
+
+              elements.compass.classList.remove("hidden");
+              elements.debugPanel.style.display = "block";
+              renderCampusMap();
+            }, 500);
+          }, 1000);
+        } catch (error) {
+          console.error("Initialization failed:", error);
+          elements.loadingStatus.textContent = `Error: ${error.message}`;
+
+          if (error.message.includes("Camera")) {
+            elements.permissionStatus.innerHTML = `
+        Camera access required!<br>
+        <button id="retry-camera" style="margin-top:10px; padding:5px 10px;">
+          Retry Camera Access
+        </button>
+      `;
+            document
+              .getElementById("retry-camera")
+              .addEventListener("click", initialize);
+          } else if (error.message.includes("Location")) {
+            elements.permissionStatus.innerHTML = `
+        Location access required!<br>
+        <button id="retry-location" style="margin-top:10px; padding:5px 10px;">
+          Retry Location Access
+        </button>
+      `;
+            document
+              .getElementById("retry-location")
+              .addEventListener("click", initialize);
+          } else {
+            elements.permissionStatus.innerHTML = `
+        ${error.message}<br>
+        <button id="retry-init" style="margin-top:10px; padding:5px 10px;">
+          Try Again
+        </button>
+      `;
+            document
+              .getElementById("retry-init")
+              .addEventListener("click", initialize);
+          }
+        }
+      }
+
+      async function requestLocationPermission() {
+        return new Promise((resolve, reject) => {
+          if (!navigator.geolocation) {
+            reject(new Error("Geolocation not supported"));
+            return;
+          }
+
+          navigator.geolocation.getCurrentPosition(
+            (position) => {
+              elements.permissionStatus.textContent =
+                "✅ Location access granted";
+              resolve(position);
+            },
+            (error) => {
+              const messages = {
+                [error.PERMISSION_DENIED]: "Location permission denied",
+                [error.POSITION_UNAVAILABLE]: "Location unavailable",
+                [error.TIMEOUT]: "Location request timeout",
+              };
+              reject(new Error(messages[error.code] || "Location error"));
+            },
+            { enableHighAccuracy: true, timeout: 15000 }
+          );
+        });
+      }
+
+      function setupEventListeners() {
+        elements.mapToggle.addEventListener("click", () => {
+          elements.mapOverlay.classList.toggle("hidden");
+          elements.mapToggle.textContent =
+            elements.mapOverlay.classList.contains("hidden")
+              ? "Show Campus Map"
+              : "Hide Campus Map";
+        });
+
+        elements.destinationSelect.addEventListener("change", (e) => {
+          selectedDestination = e.target.value;
+          elements.navigateBtn.disabled = !selectedDestination;
+
+          if (selectedDestination) {
+            const dest = DESTINATIONS[selectedDestination];
+            elements.distanceDisplay.textContent = `Ready to navigate to ${dest.icon} ${dest.name}`;
+          } else {
+            elements.distanceDisplay.textContent = "Select destination";
+          }
+        });
+
+        elements.navigateBtn.addEventListener("click", startNavigation);
+        elements.stopBtn.addEventListener("click", stopNavigation);
+
+        elements.calibrateBtn.addEventListener("click", () => {
+          elements.instructionDisplay.textContent =
+            "Move your phone in a figure-8 pattern for 5 seconds...";
+
+          setTimeout(() => {
+            compassCalibrated = true;
+            elements.instructionDisplay.textContent =
+              "Compass calibrated! Navigation accuracy improved.";
+          }, 5000);
+        });
+
+        // NEW: Add event listener for the Show UI button
+        elements.showUiBtn.addEventListener("click", toggleUiVisibility);
+      }
+
+      if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", initialize);
+      } else {
+        initialize();
+      }
+
+      window.addEventListener("beforeunload", () => {
+        if (watchId) {
+          navigator.geolocation.clearWatch(watchId);
+        }
+        if (cameraStream) {
+          cameraStream.getTracks().forEach((track) => track.stop());
+        }
+      });
+    </script>
+  </body>
+</html>

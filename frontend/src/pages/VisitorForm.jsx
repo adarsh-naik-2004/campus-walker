@@ -96,10 +96,12 @@ export default function VisitorForm() {
         institute: "",
       });
 
+      localStorage.setItem("instituteId", selectedInstituteId);
+
       toast.success("Registration successful!");
 
       // Navigate using the saved instituteId
-      navigate("/navigation", { state: { instituteId: selectedInstituteId } });
+      window.location.href = "/index.html";
     } catch (error) {
       console.error("Registration error:", error); // Add this for debugging
       toast.error(error.response?.data?.message || "Failed to submit form");
