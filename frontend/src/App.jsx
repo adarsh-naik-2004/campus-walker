@@ -6,7 +6,7 @@ import SuperAdminDashboard from './components/admin/SuperAdminDashboard.jsx'
 import UniversityAdminDashboard from './components/admin/UniversityAdminDashboard.jsx'
 import InstituteAdminDashboard from './components/admin/InstituteAdminDashboard.jsx'
 import ProtectedRoute from './components/ProtectedRoute.jsx'
-import ARNavigator from './pages/ARNavigator.jsx'
+
 
 function App() {
   return (
@@ -14,7 +14,6 @@ function App() {
       <Routes>
         <Route path="/admin" element={<AdminLogin />} />
         <Route path="/" element={<VisitorForm />} />
-        <Route path="/navigation" element={<ARNavigator />} />
 
         {/* Protected admin routes */}
         <Route element={<ProtectedRoute allowedRoles={['super']} />}>

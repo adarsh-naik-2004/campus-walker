@@ -100,15 +100,14 @@ export default function VisitorForm() {
 
       toast.success("Registration successful!");
 
-      // Navigate using the saved instituteId
-      window.location.href = "/index.html";
+      window.location.href = "/navigation.html";
     } catch (error) {
       console.error("Registration error:", error); // Add this for debugging
       toast.error(error.response?.data?.message || "Failed to submit form");
     }
   };
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 p-4 flex justify-center overflow-y-auto">
       <div className="bg-white px-4 py-6 rounded-2xl shadow-2xl w-full max-w-md md:max-w-lg md:px-8 md:py-8 transition-all duration-300">
         <h2 className="text-3xl font-extrabold text-gray-900 mb-8 text-center">
           Visitor Registration
