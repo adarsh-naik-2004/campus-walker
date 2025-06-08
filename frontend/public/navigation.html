@@ -83,7 +83,7 @@
         left: 0;
         width: 100%;
         height: 100%;
-        z-index: 1;
+        z-index: 10;
       }
 
       #ui-overlay {
@@ -92,7 +92,7 @@
         left: 0;
         right: 0;
         bottom: 0;
-        z-index: 10;
+        z-index: 100;
         pointer-events: none;
         transition: opacity 0.5s ease;
       }
@@ -251,7 +251,7 @@
       }
 
       #compass {
-        position: absolute;
+        position: fixed;
         top: 50%;
         right: 15px;
         transform: translateY(-50%);
@@ -424,14 +424,14 @@
       }
 
       #camera-container.full-screen {
-        position: fixed;
+        position: relative;
         top: 0;
         left: 0;
         width: 100%;
         height: 100%;
         border-radius: 0;
-        z-index: 21;
         border: none;
+        z-index: -9999;
       }
 
       #camera-feed {
@@ -475,6 +475,7 @@
         background: rgba(0, 0, 0, 0.9);
       }
 
+      /* FIXED: Navigation state UI visibility rules */
       body.navigation-active
         #ui-overlay
         > *:not(#camera-container):not(#compass):not(#show-ui-btn):not(
@@ -482,6 +483,22 @@
         ):not(#map-toggle) {
         opacity: 0.3;
         pointer-events: none;
+      }
+
+      /* FIXED: When UI is visible during navigation, show all elements with higher specificity */
+      body.navigation-active.ui-visible #ui-overlay > * {
+        opacity: 1 !important;
+        pointer-events: auto !important;
+      }
+
+      /* FIXED: But keep camera in full-screen mode when UI is visible */
+      body.navigation-active.ui-visible #camera-container.full-screen {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        z-index: -9999;
       }
     </style>
   </head>
@@ -631,7 +648,7 @@
       let currentRoute = [];
       let pathArrows = [];
       let cameraStream = null;
-      let uiVisible = true; // NEW: Track UI visibility state
+      let uiVisible = true;
 
       const elements = {
         loader: document.querySelector(".arjs-loader"),
@@ -658,7 +675,7 @@
         gpsStatusText: document.getElementById("gps-status-text"),
         statusDot: document.querySelector(".status-dot"),
         scene: document.getElementById("scene"),
-        showUiBtn: document.getElementById("show-ui-btn"), // NEW: Show UI button
+        showUiBtn: document.getElementById("show-ui-btn"),
       };
 
       function calculateDistance(lat1, lng1, lat2, lng2) {
@@ -879,7 +896,14 @@
                 const interLat = start.lat + (end.lat - start.lat) * progress;
                 const interLng = start.lng + (end.lng - start.lng) * progress;
 
-                createArrowAtPosition(interLat, interLng, bearing, path, 0.4, 1.5);
+                createArrowAtPosition(
+                  interLat,
+                  interLng,
+                  bearing,
+                  path,
+                  0.4,
+                  1.5
+                );
               }
             }
           }
@@ -1026,17 +1050,21 @@
         }
       }
 
-      // NEW: Toggle UI visibility during navigation
       function toggleUiVisibility() {
         uiVisible = !uiVisible;
         console.log("Toggling UI, now visible:", uiVisible);
 
         if (uiVisible) {
+          document.body.classList.add("ui-visible");
           elements.showUiBtn.textContent = "Hide UI";
           elements.statusPanel.classList.remove("hidden");
           elements.controlsPanel.classList.remove("hidden");
-          elements.stopBtn.classList.remove("hidden");
+          // Only show stop button if currently navigating
+          if (isNavigating) {
+            elements.stopBtn.classList.remove("hidden");
+          }
         } else {
+          document.body.classList.remove("ui-visible");
           elements.showUiBtn.textContent = "Show UI";
           elements.statusPanel.classList.add("hidden");
           elements.controlsPanel.classList.add("hidden");
@@ -1049,6 +1077,12 @@
 
         isNavigating = true;
         uiVisible = false; // Start with UI hidden
+
+        // Update body classes
+        document.body.classList.add("navigation-active");
+        document.body.classList.remove("ui-visible");
+
+        // Hide navigation button, show stop button and show UI button
         elements.navigateBtn.classList.add("hidden");
         elements.stopBtn.classList.remove("hidden");
         elements.showUiBtn.classList.remove("hidden");
@@ -1057,13 +1091,11 @@
         // Hide UI elements initially
         elements.statusPanel.classList.add("hidden");
         elements.controlsPanel.classList.add("hidden");
-        elements.stopBtn.classList.add("hidden");
 
         currentRoute = calculateRoute();
         createPathArrows();
 
         elements.cameraContainer.classList.add("full-screen");
-        document.body.classList.add("navigation-active");
 
         updateNavigation();
       }
@@ -1290,7 +1322,7 @@
 
       async function fetchCampusData(instituteId) {
         try {
-          const url = 'https://ar-nav-system.onrender.com/api'
+          const url = "https://ar-nav-system.onrender.com/api";
           // Fetch locations
           const locationsRes = await fetch(
             `${url}/institute/${instituteId}/locations`
