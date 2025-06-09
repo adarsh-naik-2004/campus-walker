@@ -6,10 +6,16 @@
       name="viewport"
       content="width=device-width, initial-scale=1.0, user-scalable=no"
     />
-    <title>Campus AR Path Navigator</title>
+    <title>Campus AR Path Navigator with OSM</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/aframe@1.4.0/dist/aframe.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/ar.js@3.4.5/dist/aframe-ar.min.js"></script>
+    <!-- Leaflet CSS and JS for OpenStreetMap -->
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
       * {
         margin: 0;
@@ -321,12 +327,12 @@
 
       #campus-map {
         flex: 1;
-        background: #1e3c72;
         border-radius: 10px;
         position: relative;
         overflow: hidden;
       }
 
+      /* Map elements */
       .map-node {
         position: absolute;
         width: 12px;
@@ -376,26 +382,6 @@
         background: #4caf50;
         transform-origin: left center;
         z-index: 1;
-      }
-
-      #map-toggle {
-        position: absolute;
-        top: 15px;
-        left: 15px;
-        z-index: 20;
-        background: rgba(0, 0, 0, 0.7);
-        border: 1px solid rgba(255, 255, 255, 0.3);
-        border-radius: 5px;
-        padding: 8px 12px;
-        color: white;
-        cursor: pointer;
-        transition: all 0.3s;
-        pointer-events: auto;
-        font-size: 0.9em;
-      }
-
-      #map-toggle:hover {
-        background: rgba(0, 0, 0, 0.9);
       }
 
       .map-label {
@@ -454,7 +440,26 @@
         display: none;
       }
 
-      /* NEW: Show UI button */
+      #map-toggle {
+        position: absolute;
+        top: 15px;
+        left: 15px;
+        z-index: 20;
+        background: rgba(0, 0, 0, 0.7);
+        border: 1px solid rgba(255, 255, 255, 0.3);
+        border-radius: 5px;
+        padding: 8px 12px;
+        color: white;
+        cursor: pointer;
+        transition: all 0.3s;
+        pointer-events: auto;
+        font-size: 0.9em;
+      }
+
+      #map-toggle:hover {
+        background: rgba(0, 0, 0, 0.9);
+      }
+
       #show-ui-btn {
         position: absolute;
         top: 15px;
@@ -499,6 +504,24 @@
         width: 100%;
         height: 100%;
         z-index: -9999;
+      }
+
+      /* Leaflet map adjustments */
+      .leaflet-container {
+        background: #1e3c72;
+      }
+      .leaflet-control-attribution {
+        background: rgba(0, 0, 0, 0.7);
+        color: white;
+        font-size: 9px;
+      }
+      .leaflet-popup-content-wrapper {
+        background: rgba(0, 0, 0, 0.85);
+        color: white;
+        border-radius: 8px;
+      }
+      .leaflet-popup-tip {
+        background: rgba(0, 0, 0, 0.85);
       }
     </style>
   </head>
@@ -608,6 +631,7 @@
       let CAMPUS_NODES = {};
       let CAMPUS_PATHS = [];
       let DESTINATIONS = {};
+      let campusMap = null; // Leaflet map instance
 
       // Category to icon mapping
       const CATEGORY_ICONS = {
@@ -649,6 +673,9 @@
       let pathArrows = [];
       let cameraStream = null;
       let uiVisible = true;
+      let announcedNodes = new Set();
+      let lastAnnouncedNode = null;
+      let lastAnnouncementTime = 0;
 
       const elements = {
         loader: document.querySelector(".arjs-loader"),
@@ -704,20 +731,32 @@
         return (bearing + 360) % 360;
       }
 
-      function bearingToDirection(bearing) {
-        const directions = [
-          "North",
-          "North-East",
-          "East",
-          "South-East",
-          "South",
-          "South-West",
-          "West",
-          "North-West",
-        ];
-        const index = Math.round(bearing / 45) % 8;
-        return directions[index];
+      function bearingToDirection(bearing, userHeading) {
+        // Calculate the difference between bearing and user heading
+        let diff = bearing - userHeading;
+        // Normalize to -180 to 180 range
+        diff = ((diff % 360) + 540) % 360 - 180;
+        
+        if (Math.abs(diff) <= 15) {
+          return "keep moving straight";
+        } else if (diff > 15 && diff <= 75) {
+          return "turn slightly right";
+        } else if (diff > 75 && diff <= 105) {
+          return "turn right";
+        } else if (diff > 105 && diff <= 165) {
+          return "turn sharp right";
+        } else if (diff > 165 || diff <= -165) {
+          return "turn around";
+        } else if (diff < -15 && diff >= -75) {
+          return "turn slightly left";
+        } else if (diff < -75 && diff >= -105) {
+          return "turn left";
+        } else if (diff < -105 && diff >= -165) {
+          return "turn sharp left";
+        }
+        return "continue";
       }
+
 
       function findNearestNode(lat, lng) {
         let minDistance = Infinity;
@@ -919,134 +958,253 @@
         pathArrows = [];
       }
 
-      function renderCampusMap() {
-        elements.campusMap.innerHTML = "";
+      function initLeafletMap() {
+        // Initialize the Leaflet map if it hasn't been created yet
+        if (!campusMap) {
+          campusMap = L.map("campus-map", {
+            attributionControl: false,
+          }).setView([21.28912, 81.700358], 17);
 
-        const mapWidth = elements.campusMap.clientWidth;
-        const mapHeight = elements.campusMap.clientHeight;
+          // Add OpenStreetMap layer
+          L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+            attribution:
+              '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+          }).addTo(campusMap);
 
-        let minLat = Infinity,
-          maxLat = -Infinity;
-        let minLng = Infinity,
-          maxLng = -Infinity;
+          // Add attribution to bottom right
+          L.control
+            .attribution({
+              prefix: false,
+              position: "bottomright",
+            })
+            .addTo(campusMap);
+        }
+      }
 
-        for (const node of Object.values(CAMPUS_NODES)) {
-          if (node.lat < minLat) minLat = node.lat;
-          if (node.lat > maxLat) maxLat = node.lat;
-          if (node.lng < minLng) minLng = node.lng;
-          if (node.lng > maxLng) maxLng = node.lng;
+      function speak(text) {
+        if ("speechSynthesis" in window) {
+          const utterance = new SpeechSynthesisUtterance(text);
+          utterance.volume = 1;
+          utterance.rate = 1;
+          utterance.pitch = 1;
+          window.speechSynthesis.speak(utterance);
+        }
+      }
+
+      function getTurnDirection(prevNode, currentNode, nextNode) {
+        if (!prevNode || !nextNode) return "keep moving straight";
+
+        const bearingToCurrent = calculateBearing(
+          prevNode.lat,
+          prevNode.lng,
+          currentNode.lat,
+          currentNode.lng
+        );
+
+        const bearingToNext = calculateBearing(
+          currentNode.lat,
+          currentNode.lng,
+          nextNode.lat,
+          nextNode.lng
+        );
+
+        const angleDiff = (bearingToNext - bearingToCurrent + 360) % 360;
+
+        if (angleDiff > 337.5 || angleDiff < 22.5)
+          return "keep moving straight";
+        if (angleDiff >= 22.5 && angleDiff < 67.5) return "take a slight right";
+        if (angleDiff >= 67.5 && angleDiff < 112.5) return "take a right";
+        if (angleDiff >= 112.5 && angleDiff < 157.5)
+          return "take a sharp right";
+        if (angleDiff >= 157.5 && angleDiff < 202.5) return "turn around";
+        if (angleDiff >= 202.5 && angleDiff < 247.5) return "take a sharp left";
+        if (angleDiff >= 247.5 && angleDiff < 292.5) return "take a left";
+        if (angleDiff >= 292.5 && angleDiff < 337.5)
+          return "take a slight left";
+
+        return "continue";
+      }
+
+      function checkNodeArrival() {
+        if (!isNavigating || !userPosition || currentRoute.length < 2) return;
+
+        const now = Date.now();
+        // Throttle announcements to prevent spamming
+        if (now - lastAnnouncementTime < 5000) return;
+
+        // Find the nearest node in the route
+        let minDistance = Infinity;
+        let nearestNode = null;
+        let nodeIndex = -1;
+
+        for (let i = 0; i < currentRoute.length; i++) {
+          const nodeId = currentRoute[i];
+          const node = CAMPUS_NODES[nodeId];
+          const distance = calculateDistance(
+            userPosition.lat,
+            userPosition.lng,
+            node.lat,
+            node.lng
+          );
+
+          if (distance < minDistance) {
+            minDistance = distance;
+            nearestNode = node;
+            nodeIndex = i;
+          }
         }
 
-        const latPadding = (maxLat - minLat) * 0.1;
-        const lngPadding = (maxLng - minLng) * 0.1;
+        // Check if we're close enough to a node and haven't announced it recently
+        if (
+          minDistance < 15 &&
+          nearestNode &&
+          nearestNode.id !== lastAnnouncedNode &&
+          !announcedNodes.has(nearestNode.id)
+        ) {
+          let announcement = `You are now at ${nearestNode.name}. `;
 
-        minLat -= latPadding;
-        maxLat += latPadding;
-        minLng -= lngPadding;
-        maxLng += lngPadding;
+          // Get turn instruction if not at destination
+          if (nodeIndex < currentRoute.length - 1) {
+            const prevNode =
+              nodeIndex > 0 ? CAMPUS_NODES[currentRoute[nodeIndex - 1]] : null;
+            const nextNode = CAMPUS_NODES[currentRoute[nodeIndex + 1]];
 
-        const latToY = (lat) => {
-          return mapHeight - ((lat - minLat) / (maxLat - minLat)) * mapHeight;
-        };
+            const turnDirection = getTurnDirection(
+              prevNode,
+              nearestNode,
+              nextNode
+            );
+            announcement += `Now ${turnDirection}.`;
+          }
 
-        const lngToX = (lng) => {
-          return ((lng - minLng) / (maxLng - minLng)) * mapWidth;
-        };
+          // Speak the announcement
+          speak(announcement);
 
+          // Update tracking
+          announcedNodes.add(nearestNode.id);
+          lastAnnouncedNode = nearestNode.id;
+          lastAnnouncementTime = now;
+
+          console.log("Announcement:", announcement);
+        }
+      }
+
+      function renderCampusMap() {
+        initLeafletMap();
+
+        // Clear any previous layers
+        campusMap.eachLayer((layer) => {
+          if (layer instanceof L.Marker || layer instanceof L.Polyline) {
+            campusMap.removeLayer(layer);
+          }
+        });
+
+        // Add campus nodes as markers
+        for (const [id, node] of Object.entries(CAMPUS_NODES)) {
+          const marker = L.marker([node.lat, node.lng]).addTo(campusMap);
+          marker.bindPopup(`${node.name}`);
+
+          // Customize marker based on category
+          const icon = L.divIcon({
+            className: "map-node-icon",
+            html: `<div style="background: #4CAF50; width: 12px; height: 12px; border-radius: 50%; border: 2px solid white;"></div>`,
+            iconSize: [12, 12],
+            iconAnchor: [6, 6],
+          });
+          marker.setIcon(icon);
+        }
+
+        // Add campus paths as polylines
         for (const path of CAMPUS_PATHS) {
           const fromNode = CAMPUS_NODES[path.from];
           const toNode = CAMPUS_NODES[path.to];
 
           if (!fromNode || !toNode) continue;
 
-          const x1 = lngToX(fromNode.lng);
-          const y1 = latToY(fromNode.lat);
-          const x2 = lngToX(toNode.lng);
-          const y2 = latToY(toNode.lat);
+          const points = [
+            [fromNode.lat, fromNode.lng],
+            ...(path.waypoints || []),
+            [toNode.lat, toNode.lng],
+          ];
 
-          const dx = x2 - x1;
-          const dy = y2 - y1;
-          const distance = Math.sqrt(dx * dx + dy * dy);
-          const angle = (Math.atan2(dy, dx) * 180) / Math.PI;
-
-          const pathElem = document.createElement("div");
-          pathElem.className = "map-path";
-          pathElem.style.width = distance + "px";
-          pathElem.style.left = x1 + "px";
-          pathElem.style.top = y1 + "px";
-          pathElem.style.transform = `rotate(${angle}deg)`;
-          elements.campusMap.appendChild(pathElem);
+          const polyline = L.polyline(points, {
+            color: "#FFC107",
+            weight: 4,
+          }).addTo(campusMap);
         }
 
-        for (const [id, node] of Object.entries(CAMPUS_NODES)) {
-          const x = lngToX(node.lng);
-          const y = latToY(node.lat);
-
-          const nodeElem = document.createElement("div");
-          nodeElem.className = "map-node";
-          nodeElem.style.left = x + "px";
-          nodeElem.style.top = y + "px";
-          nodeElem.title = node.name;
-          elements.campusMap.appendChild(nodeElem);
-
-          const label = document.createElement("div");
-          label.className = "map-label";
-          label.textContent = node.name;
-          label.style.left = x + 10 + "px";
-          label.style.top = y - 10 + "px";
-          elements.campusMap.appendChild(label);
-        }
-
+        // Draw user position
         if (userPosition && userPosition.lat && userPosition.lng) {
-          const x = lngToX(userPosition.lng);
-          const y = latToY(userPosition.lat);
+          const userIcon = L.divIcon({
+            className: "map-user-icon",
+            html: `<div style="background: #2196F3; width: 16px; height: 16px; border-radius: 50%; border: 2px solid white; box-shadow: 0 0 10px #2196f3;"></div>`,
+            iconSize: [16, 16],
+            iconAnchor: [8, 8],
+          });
 
-          const userElem = document.createElement("div");
-          userElem.className = "map-user";
-          userElem.style.left = x + "px";
-          userElem.style.top = y + "px";
-          elements.campusMap.appendChild(userElem);
+          const userMarker = L.marker([userPosition.lat, userPosition.lng], {
+            icon: userIcon,
+          }).addTo(campusMap);
         }
 
+        // Draw destination if navigating
         if (isNavigating && selectedDestination) {
           const destNode = CAMPUS_NODES[DESTINATIONS[selectedDestination].node];
           if (destNode) {
-            const x = lngToX(destNode.lng);
-            const y = latToY(destNode.lat);
+            const destIcon = L.divIcon({
+              className: "map-destination-icon",
+              html: `<div style="background: #f44336; width: 16px; height: 16px; border-radius: 50%; border: 2px solid white; box-shadow: 0 0 10px #f44336;"></div>`,
+              iconSize: [16, 16],
+              iconAnchor: [8, 8],
+            });
 
-            const destElem = document.createElement("div");
-            destElem.className = "map-destination";
-            destElem.style.left = x + "px";
-            destElem.style.top = y + "px";
-            elements.campusMap.appendChild(destElem);
+            const destMarker = L.marker([destNode.lat, destNode.lng], {
+              icon: destIcon,
+            }).addTo(campusMap);
+            destMarker
+              .bindPopup(DESTINATIONS[selectedDestination].name)
+              .openPopup();
           }
         }
 
+        // Draw route if navigating
         if (isNavigating && currentRoute.length > 1) {
-          for (let i = 0; i < currentRoute.length - 1; i++) {
-            const fromNode = CAMPUS_NODES[currentRoute[i]];
-            const toNode = CAMPUS_NODES[currentRoute[i + 1]];
-
-            if (!fromNode || !toNode) continue;
-
-            const x1 = lngToX(fromNode.lng);
-            const y1 = latToY(fromNode.lat);
-            const x2 = lngToX(toNode.lng);
-            const y2 = latToY(toNode.lat);
-
-            const dx = x2 - x1;
-            const dy = y2 - y1;
-            const distance = Math.sqrt(dx * dx + dy * dy);
-            const angle = (Math.atan2(dy, dx) * 180) / Math.PI;
-
-            const routeElem = document.createElement("div");
-            routeElem.className = "map-route";
-            routeElem.style.width = distance + "px";
-            routeElem.style.left = x1 + "px";
-            routeElem.style.top = y1 + "px";
-            routeElem.style.transform = `rotate(${angle}deg)`;
-            elements.campusMap.appendChild(routeElem);
+          const routePoints = [];
+          for (let i = 0; i < currentRoute.length; i++) {
+            const nodeId = currentRoute[i];
+            const node = CAMPUS_NODES[nodeId];
+            if (node) {
+              routePoints.push([node.lat, node.lng]);
+            }
           }
+
+          if (routePoints.length > 1) {
+            const routePolyline = L.polyline(routePoints, {
+              color: "#4CAF50",
+              weight: 6,
+              dashArray: "5, 10",
+            }).addTo(campusMap);
+          }
+        }
+
+        // Fit map to show all points
+        const points = Object.values(CAMPUS_NODES).map((node) => [
+          node.lat,
+          node.lng,
+        ]);
+        if (userPosition && userPosition.lat) {
+          points.push([userPosition.lat, userPosition.lng]);
+        }
+        if (isNavigating && selectedDestination) {
+          const destNode = CAMPUS_NODES[DESTINATIONS[selectedDestination].node];
+          if (destNode) {
+            points.push([destNode.lat, destNode.lng]);
+          }
+        }
+
+        if (points.length > 0) {
+          const bounds = L.latLngBounds(points);
+          campusMap.fitBounds(bounds, { padding: [10, 10] });
         }
       }
 
@@ -1077,6 +1235,9 @@
 
         isNavigating = true;
         uiVisible = false; // Start with UI hidden
+        announcedNodes = new Set();
+        lastAnnouncedNode = null;
+        lastAnnouncementTime = 0;
 
         // Update body classes
         document.body.classList.add("navigation-active");
@@ -1144,7 +1305,10 @@
           destNode.lng
         );
 
-        const direction = bearingToDirection(bearing);
+        // MODIFIED: Use relative directions instead of compass directions
+        const direction = bearingToDirection(bearing, userPosition.heading);
+
+        checkNodeArrival();
 
         if (distance < 10) {
           elements.distanceDisplay.textContent = "🎯 Arrived!";
@@ -1156,14 +1320,16 @@
           elements.distanceDisplay.textContent = `${Math.round(
             distance
           )}m away`;
-          elements.directionDisplay.textContent = `Almost there! Head ${direction}`;
+          // MODIFIED: Updated text for relative directions
+          elements.directionDisplay.textContent = `Almost there! ${direction}`;
           elements.instructionDisplay.textContent =
             "Look for the green AR markers";
         } else {
           elements.distanceDisplay.textContent = `${Math.round(distance)}m to ${
             destination.icon
           } ${destination.name}`;
-          elements.directionDisplay.textContent = `Head ${direction}`;
+          // MODIFIED: Updated text for relative directions
+          elements.directionDisplay.textContent = direction;
           elements.instructionDisplay.textContent =
             "Follow the AR arrows to your destination";
         }
@@ -1403,11 +1569,7 @@
           elements.loadingStatus.textContent = "Initializing AR navigation...";
 
           // Get institute ID from localStorage
-          const instituteId = localStorage.getItem("instituteId");
-          if (!instituteId) {
-            throw new Error("No institute selected. Please register first.");
-          }
-
+          const instituteId = localStorage.getItem("instituteId") || "demo";
           elements.loadingStatus.textContent = "Loading campus data...";
           await fetchCampusData(instituteId);
 
@@ -1513,6 +1675,11 @@
             elements.mapOverlay.classList.contains("hidden")
               ? "Show Campus Map"
               : "Hide Campus Map";
+
+          // When map is shown, invalidate Leaflet map size
+          if (!elements.mapOverlay.classList.contains("hidden") && campusMap) {
+            setTimeout(() => campusMap.invalidateSize(), 100);
+          }
         });
 
         elements.destinationSelect.addEventListener("change", (e) => {
@@ -1541,8 +1708,14 @@
           }, 5000);
         });
 
-        // NEW: Add event listener for the Show UI button
         elements.showUiBtn.addEventListener("click", toggleUiVisibility);
+
+        // Handle window resize for Leaflet map
+        window.addEventListener("resize", () => {
+          if (campusMap && !elements.mapOverlay.classList.contains("hidden")) {
+            setTimeout(() => campusMap.invalidateSize(), 100);
+          }
+        });
       }
 
       if (document.readyState === "loading") {
