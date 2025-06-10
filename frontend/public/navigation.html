@@ -7,9 +7,16 @@
       content="width=device-width, initial-scale=1.0, user-scalable=no"
     />
     <title>Campus AR Path Navigator with OSM</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/aframe@1.4.0/dist/aframe.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/ar.js@3.4.5/dist/aframe-ar.min.js"></script>
+    <script src="https://aframe.io/releases/1.3.0/aframe.min.js"></script>
+    <script
+      type="text/javascript"
+      src="https://raw.githack.com/AR-js-org/AR.js/3.4.5/three.js/build/ar-threex-location-only.js"
+    ></script>
+    <script
+      type="text/javascript"
+      src="https://raw.githack.com/AR-js-org/AR.js/3.4.5/aframe/build/aframe-ar.js"
+    ></script>
+
     <!-- Leaflet CSS and JS for OpenStreetMap -->
     <link
       rel="stylesheet"
@@ -738,28 +745,27 @@
         // Calculate the difference between bearing and user heading
         let diff = bearing - userHeading;
         // Normalize to -180 to 180 range
-        diff = ((diff % 360) + 540) % 360 - 180;
-        
+        diff = (((diff % 360) + 540) % 360) - 180;
+
         if (Math.abs(diff) <= 15) {
-          return "keep moving straight";
+          return "Keep Moving Straight";
         } else if (diff > 15 && diff <= 75) {
-          return "turn slightly right";
+          return "Turn Slightly Right";
         } else if (diff > 75 && diff <= 105) {
-          return "turn right";
+          return "Turn Right";
         } else if (diff > 105 && diff <= 165) {
-          return "turn sharp right";
+          return "Turn Sharp Right";
         } else if (diff > 165 || diff <= -165) {
-          return "turn around";
+          return "Turn Around";
         } else if (diff < -15 && diff >= -75) {
-          return "turn slightly left";
+          return "Turn Slightly Left";
         } else if (diff < -75 && diff >= -105) {
-          return "turn left";
+          return "Turn Left";
         } else if (diff < -105 && diff >= -165) {
-          return "turn sharp left";
+          return "Turn Sharp Left";
         }
         return "continue";
       }
-
 
       function findNearestNode(lat, lng) {
         let minDistance = Infinity;
