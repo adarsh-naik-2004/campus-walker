@@ -1261,6 +1261,8 @@
 
         elements.cameraContainer.classList.add("full-screen");
 
+        testMarkerVisibility();
+
         updateNavigation();
       }
 
@@ -1602,7 +1604,6 @@
           startGPSTracking();
           setupEventListeners();
           populateDestinationSelect();
-          testMarkerVisibility();
 
           setTimeout(() => {
             elements.loader.style.opacity = "0";
