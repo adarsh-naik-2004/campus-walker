@@ -843,32 +843,51 @@
         lng,
         bearing,
         path,
-        size = 0.5,
-        height = 2
+        size = 0.8,
+        height = 2.5
       ) {
         const arrow = document.createElement("a-entity");
         arrow.classList.add("ar-arrow");
         arrow.setAttribute("gps-entity-place", {
           latitude: lat,
           longitude: lng,
-          altitude: 1, // Set explicit altitude
+          altitude: 1,
         });
 
         const arrowVisual = document.createElement("a-entity");
-        arrowVisual.setAttribute(
-          "geometry",
-          `primitive: cone; radiusBottom: ${size}; radiusTop: 0; height: ${height}`
-        );
 
-        // Use different color for accessible paths
-        const color = path.accessibilityFriendly ? "#2196F3" : "#4CAF50";
+        // Create the main arrow body (cone)
+        const cone = document.createElement("a-cone");
+        cone.setAttribute("radius-bottom", size);
+        cone.setAttribute("radius-top", 0);
+        cone.setAttribute("height", height);
+        cone.setAttribute("material", "color: #1a2a6c; opacity: 1;"); // Dark blue, non-transparent
+        cone.setAttribute("position", "0 1.25 0"); // Center vertically
 
-        arrowVisual.setAttribute("material", `color: ${color}`);
+        // Create arrow tail (cylinder base)
+        const cylinder = document.createElement("a-cylinder");
+        cylinder.setAttribute("radius", size * 0.6);
+        cylinder.setAttribute("height", height * 0.3);
+        cylinder.setAttribute("material", "color: #1a2a6c; opacity: 1;"); // Same dark color
+        cylinder.setAttribute("position", "0 0.15 0"); // Position below the cone
+
+        arrowVisual.appendChild(cone);
+        arrowVisual.appendChild(cylinder);
+
+        // Rotate to face the direction
         arrowVisual.setAttribute("rotation", `0 ${bearing} 0`);
-        arrowVisual.setAttribute("position", "0 1.5 0");
+
+        // Add pulsing animation to make it more visible
         arrowVisual.setAttribute(
           "animation",
-          "property: position; to: 0 2.5 0; dir: alternate; loop: true; dur: 1500"
+          `
+    property: scale;
+    dir: alternate;
+    dur: 1000;
+    loop: true;
+    from: 1 1 1;
+    to: 1.1 1.1 1.1;
+  `
         );
 
         arrow.appendChild(arrowVisual);
