@@ -686,7 +686,7 @@
         mapOverlay: document.getElementById("map-overlay"),
         mapToggle: document.getElementById("map-toggle"),
         campusMap: document.getElementById("campus-map"),
-        cameraContainer: document.getElementById("camera-container"),
+        // cameraContainer: document.getElementById("camera-container"),
         cameraFeed: document.getElementById("camera-feed"),
         debugPanel: document.getElementById("debug-panel"),
         debugInfo: document.getElementById("debug-info"),
@@ -1285,7 +1285,7 @@
         currentRoute = calculateRoute();
         createPathArrows();
 
-        elements.cameraContainer.classList.add("full-screen");
+        // elements.cameraContainer.classList.add("full-screen");
 
         updateNavigation();
       }
@@ -1295,7 +1295,7 @@
         uiVisible = true;
         elements.navigateBtn.classList.remove("hidden");
         elements.stopBtn.classList.add("hidden");
-        elements.showUiBtn.classList.add("hidden");
+        // elements.showUiBtn.classList.add("hidden");
 
         // Show UI elements again
         elements.statusPanel.classList.remove("hidden");
@@ -1308,7 +1308,7 @@
         elements.instructionDisplay.textContent =
           "Select a destination to navigate";
 
-        elements.cameraContainer.classList.remove("full-screen");
+        // elements.cameraContainer.classList.remove("full-screen");
         document.body.classList.remove("navigation-active");
       }
 
@@ -1496,7 +1496,7 @@
           });
 
           elements.cameraFeed.srcObject = stream;
-          elements.cameraContainer.classList.remove("hidden");
+          // elements.cameraContainer.classList.remove("hidden");
           cameraStream = stream;
           return stream;
         } catch (err) {
