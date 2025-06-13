@@ -19,6 +19,6 @@ router.get("/university/:universityId", auth, requireRole("super", "university",
 // Add this new route at the top or after other GETs
 router.get("/institute/:id", auth, requireRole("super", "university", "institute"), getInstituteVisitors);
 // Add this route
-router.delete("/:id", auth, requireRole("super", "university"), deleteVisitor);
+router.delete("/:id", auth, deleteVisitor);
 
 export default router;
