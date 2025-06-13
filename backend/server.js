@@ -9,6 +9,7 @@ import instituteRoutes from './src/routes/instituteRoutes.js';
 import visitorRoutes from './src/routes/visitorRoutes.js';
 import { getUniversities } from './src/controllers/universityController.js';
 import navigationRoutes from './src/routes/navigation.js';
+import indoorRoutes from './src/routes/indoorRoutes.js';
 
 dotenv.config();
 const app = express();
@@ -40,6 +41,8 @@ app.use('/api/public', express.Router()
 );
 
 app.use('/api/navigation', navigationRoutes);
+
+app.use('/api/indoor', indoorRoutes)
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));

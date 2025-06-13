@@ -38,7 +38,8 @@ api.interceptors.response.use(
       '/visitors',
       '/public/universities',
       '/university/',
-      '/institute/'
+      '/institute/',
+      '/building/',
     ];
     
     // Check if this is a public route

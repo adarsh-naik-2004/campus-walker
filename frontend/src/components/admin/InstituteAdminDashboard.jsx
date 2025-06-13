@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import AddLocation from "./AddLocation.jsx";
 import AddPath from "./AddPath.jsx";
+import IndoorManagement from "./IndoorManagement.jsx";
 import api from "../../utils/api.js";
 
 export default function InstituteAdminDashboard() {
@@ -141,7 +142,8 @@ export default function InstituteAdminDashboard() {
       icon: "📍",
       count: locations.length,
     },
-    { id: "routes", label: "Routes", icon: "🛣️", count: paths.length }, // New routes tab
+    { id: "routes", label: "Routes", icon: "🛣️", count: paths.length },
+    { id: "indoor", label: "Indoor Nav", icon: "🏢" }, // New routes tab
   ];
 
   return (
@@ -600,6 +602,10 @@ export default function InstituteAdminDashboard() {
                 </div>
               </div>
             </div>
+          )}
+
+          {activeTab === "indoor" && (
+            <IndoorManagement instituteId={instituteId} />
           )}
         </div>
       </div>
