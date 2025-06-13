@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { toast } from "react-hot-toast";
 import api from "../../utils/api";
-import QRCode from "qrcode.react";
+import { QRCode } from "qrcode.react";
 
 export default function IndoorManagement({ instituteId }) {
   const [activeTab, setActiveTab] = useState("locations");
