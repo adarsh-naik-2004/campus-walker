@@ -9,6 +9,6 @@ const indoorPathSchema = new mongoose.Schema({
   floorChange: Number, // 0 = same floor, +1 = up, -1 = down
   institute: { type: mongoose.Schema.Types.ObjectId, ref: 'Institute', required: true }
 });
-
+indoorPathSchema.index({ institute: 1 });
 const IndoorPath = mongoose.model('IndoorPath', indoorPathSchema);
 export default IndoorPath;

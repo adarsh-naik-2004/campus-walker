@@ -1,307 +1,331 @@
 <!DOCTYPE html>
 <html>
-<head>
-  <meta charset="utf-8">
-  <title>Indoor AR Navigation</title>
-  <script src="https://aframe.io/releases/1.2.0/aframe.min.js"></script>
-  <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
-  <style>
-    body { margin: 0; overflow: hidden; }
-    #mapContainer {
-      position: fixed;
-      bottom: 20px;
-      right: 20px;
-      width: 300px;
-      height: 300px;
-      background: white;
-      border: 2px solid #333;
-      border-radius: 10px;
-      z-index: 100;
-      display: none;
-    }
-    #infoPanel {
-      position: fixed;
-      top: 20px;
-      left: 20px;
-      background: rgba(255,255,255,0.9);
-      padding: 15px;
-      border-radius: 10px;
-      z-index: 100;
-      max-width: 300px;
-      display: none;
-    }
-    #destinations {
-      max-height: 200px;
-      overflow-y: auto;
-    }
-    .dest-item {
-      padding: 8px;
-      border-bottom: 1px solid #eee;
-      cursor: pointer;
-    }
-    .dest-item:hover {
-      background: #f0f0f0;
-    }
-  </style>
-</head>
-<body>
-  <a-scene embedded arjs="sourceType: webcam; debugUIEnabled: false;">
+  <head>
+    <meta charset="utf-8" />
+    <title>Indoor AR Navigation</title>
+    <script src="https://aframe.io/releases/1.2.0/aframe.min.js"></script>
+    <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <style>
+      body {
+        margin: 0;
+        overflow: hidden;
+      }
+      #mapContainer {
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        width: 300px;
+        height: 300px;
+        background: white;
+        border: 2px solid #333;
+        border-radius: 10px;
+        z-index: 100;
+        display: none;
+      }
+      #infoPanel {
+        position: fixed;
+        top: 20px;
+        left: 20px;
+        background: rgba(255, 255, 255, 0.9);
+        padding: 15px;
+        border-radius: 10px;
+        z-index: 100;
+        max-width: 300px;
+        display: none;
+      }
+      #destinations {
+        max-height: 200px;
+        overflow-y: auto;
+      }
+      .dest-item {
+        padding: 8px;
+        border-bottom: 1px solid #eee;
+        cursor: pointer;
+      }
+      .dest-item:hover {
+        background: #f0f0f0;
+      }
+    </style>
+  </head>
+  <body>
+    <a-scene embedded arjs="sourceType: webcam; debugUIEnabled: false;">
+      <!-- AR Camera -->
+      <a-camera gps-camera rotation-reader></a-camera>
 
-    <!-- AR Camera -->
-    <a-camera gps-camera rotation-reader></a-camera>
-    
-    <!-- AR Content will be added dynamically -->
-    <a-entity id="ar-content"></a-entity>
-    
-    <!-- Marker-based AR -->
-    <a-marker id="marker" type="pattern" url="data/pattern-marker.patt">
-      <a-entity id="arrow-entity"></a-entity>
-    </a-marker>
-  </a-scene>
-  
-  <!-- 2D Map Container -->
-  <div id="mapContainer">
-    <canvas id="mapCanvas" width="300" height="300"></canvas>
-  </div>
-  
-  <!-- Info Panel -->
-  <div id="infoPanel">
-    <h3>Navigation Controls</h3>
-    <div>
-      <button id="startNav">Start Navigation</button>
-      <button id="scanMarker">Scan Marker</button>
-    </div>
-    <div id="destinations" style="display:none">
-      <!-- Destinations will be populated here -->
-    </div>
-    <div id="navInfo"></div>
-  </div>
+      <!-- AR Content will be added dynamically -->
+      <a-entity id="ar-content"></a-entity>
 
-  <script>
-    // Global state
-    const state = {
-      currentBuilding: null,
-      currentNode: null,
-      destination: null,
-      path: [],
-      graph: null,
-      mapScale: 1,
-      buildingData: {}
-    };
-    
-    // DOM Elements
-    const mapContainer = document.getElementById('mapContainer');
-    const mapCanvas = document.getElementById('mapCanvas');
-    const infoPanel = document.getElementById('infoPanel');
-    const destinationsDiv = document.getElementById('destinations');
-    const navInfo = document.getElementById('navInfo');
-    const startNavBtn = document.getElementById('startNav');
-    const scanMarkerBtn = document.getElementById('scanMarker');
-    const arContent = document.getElementById('ar-content');
-    const arrowEntity = document.getElementById('arrow-entity');
-    
-    // Initialize
-    document.querySelector('a-marker').addEventListener('markerFound', (e) => {
-      const markerId = e.target.id;
-      handleMarkerFound(markerId);
-    });
-    
-    startNavBtn.addEventListener('click', showDestinations);
-    scanMarkerBtn.addEventListener('click', () => {
-      // In a real app, this would trigger QR scanning
-      alert('Point camera at a QR code marker');
-    });
-    
-    // Marker Handling
-    function handleMarkerFound(markerId) {
-      // For demo, markerId is hardcoded - in real app, get from QR
-      const nodeId = 'A101'; // Should come from QR content
-      
-      if (!state.currentBuilding) {
-        // First scan - set building
-        state.currentBuilding = 'A'; // Should come from marker
-        loadBuildingData('A');
-      }
-      
-      state.currentNode = nodeId;
-      updateUI();
-      
-      if (state.destination && state.path.length > 0) {
-        navigateToNext();
-      }
-    }
-    
-    // Load building data from backend
-    async function loadBuildingData(building) {
-      try {
-        const response = await axios.get(`https://ar-nav-system.onrender.com/api/indoor/building/${building}`);
-        state.buildingData = response.data;
-        state.graph = buildGraph(response.data);
-        drawMap();
-        mapContainer.style.display = 'block';
-        infoPanel.style.display = 'block';
-      } catch (error) {
-        console.error('Error loading building data:', error);
-      }
-    }
-    
-    // Build graph for pathfinding
-    function buildGraph(data) {
-      const graph = {};
-      data.nodes.forEach(node => {
-        graph[node.id] = [];
+      <!-- Marker-based AR -->
+      <a-marker id="marker" type="pattern" url="data/pattern-marker.patt">
+        <a-entity id="arrow-entity"></a-entity>
+      </a-marker>
+    </a-scene>
+
+    <!-- 2D Map Container -->
+    <div id="mapContainer">
+      <canvas id="mapCanvas" width="300" height="300"></canvas>
+    </div>
+
+    <!-- Info Panel -->
+    <div id="infoPanel">
+      <h3>Navigation Controls</h3>
+      <div>
+        <button id="startNav">Start Navigation</button>
+        <button id="scanMarker">Scan Marker</button>
+      </div>
+      <div id="destinations" style="display: none">
+        <!-- Destinations will be populated here -->
+      </div>
+      <div id="navInfo"></div>
+    </div>
+
+    <script>
+      // Global state
+      const state = {
+        currentBuilding: null,
+        currentNode: null,
+        destination: null,
+        path: [],
+        graph: null,
+        mapScale: 1,
+        buildingData: {},
+      };
+
+      // DOM Elements
+      const mapContainer = document.getElementById("mapContainer");
+      const mapCanvas = document.getElementById("mapCanvas");
+      const infoPanel = document.getElementById("infoPanel");
+      const destinationsDiv = document.getElementById("destinations");
+      const navInfo = document.getElementById("navInfo");
+      const startNavBtn = document.getElementById("startNav");
+      const scanMarkerBtn = document.getElementById("scanMarker");
+      const arContent = document.getElementById("ar-content");
+      const arrowEntity = document.getElementById("arrow-entity");
+
+      // Initialize
+      document
+        .querySelector("a-marker")
+        .addEventListener("markerFound", (e) => {
+          const markerId = e.target.id;
+          handleMarkerFound(markerId);
+        });
+
+      startNavBtn.addEventListener("click", showDestinations);
+      scanMarkerBtn.addEventListener("click", () => {
+        // In a real app, this would trigger QR scanning
+        alert("Point camera at a QR code marker");
       });
-      
-      data.edges.forEach(edge => {
-        graph[edge.from].push({ node: edge.to, weight: edge.distance });
-        graph[edge.to].push({ node: edge.from, weight: edge.distance });
-      });
-      
-      return graph;
-    }
-    
-    // Dijkstra's algorithm
-    function dijkstra(graph, start, end) {
-      const distances = {};
-      const prev = {};
-      const queue = [];
-      
-      for (const node in graph) {
-        distances[node] = Infinity;
-        prev[node] = null;
-        queue.push(node);
+
+      // Marker Handling
+      function handleMarkerFound(markerData) {
+        const [building, nodeId] = markerData.split("-");
+
+        if (!state.currentBuilding) {
+          state.currentBuilding = building;
+          loadBuildingData(building);
+        }
+
+        state.currentNode = nodeId;
+        updateUI();
       }
-      distances[start] = 0;
-      
-      while (queue.length) {
-        queue.sort((a, b) => distances[a] - distances[b]);
-        const minNode = queue.shift();
-        
-        if (minNode === end) break;
-        
-        graph[minNode].forEach(neighbor => {
-          const alt = distances[minNode] + neighbor.weight;
-          if (alt < distances[neighbor.node]) {
-            distances[neighbor.node] = alt;
-            prev[neighbor.node] = minNode;
+
+      // Load building data from backend
+      async function loadBuildingData(building) {
+        try {
+          const response = await axios.get(
+            `https://ar-nav-system.onrender.com/api/indoor/building/${building}`
+          );
+          state.buildingData = response.data;
+          state.graph = buildGraph(response.data);
+          drawMap();
+          mapContainer.style.display = "block";
+          infoPanel.style.display = "block";
+        } catch (error) {
+          console.error("Error loading building data:", error);
+        }
+      }
+
+      // Build graph for pathfinding
+      function buildGraph(data) {
+        const graph = {};
+
+        data.nodes.forEach((node) => {
+          graph[node.id] = [];
+        });
+
+        data.edges.forEach((edge) => {
+          // Add penalty for floor changes
+          const weight = edge.distance + (edge.floorChange ? 50 : 0);
+
+          graph[edge.from].push({
+            node: edge.to,
+            weight,
+            floorChange: edge.floorChange || 0,
+          });
+
+          // Bidirectional only for same floor
+          if (!edge.floorChange) {
+            graph[edge.to].push({
+              node: edge.from,
+              weight,
+              floorChange: 0,
+            });
           }
         });
+
+        return graph;
       }
-      
-      const path = [];
-      let current = end;
-      while (current) {
-        path.unshift(current);
-        current = prev[current];
-      }
-      
-      return path;
-    }
-    
-    // Navigation functions
-    function showDestinations() {
-      destinationsDiv.innerHTML = '';
-      state.buildingData.nodes.forEach(node => {
-        if (node.id !== state.currentNode) {
-          const div = document.createElement('div');
-          div.className = 'dest-item';
-          div.textContent = node.name;
-          div.onclick = () => setDestination(node);
-          destinationsDiv.appendChild(div);
+
+      // Dijkstra's algorithm
+      function dijkstra(graph, start, end) {
+        const distances = {};
+        const prev = {};
+        const queue = [];
+
+        for (const node in graph) {
+          distances[node] = Infinity;
+          prev[node] = null;
+          queue.push(node);
         }
-      });
-      destinationsDiv.style.display = 'block';
-    }
-    
-    function setDestination(node) {
-      state.destination = node;
-      destinationsDiv.style.display = 'none';
-      calculatePath();
-    }
-    
-    function calculatePath() {
-      if (!state.currentNode || !state.destination || !state.graph) return;
-      
-      state.path = dijkstra(state.graph, state.currentNode, state.destination.id);
-      navInfo.textContent = `Path: ${state.path.join(' → ')}`;
-      navigateToNext();
-    }
-    
-    function navigateToNext() {
-      if (state.path.length < 2) return;
-      
-      const nextNodeId = state.path[1];
-      const nextNode = state.buildingData.nodes.find(n => n.id === nextNodeId);
-      const currentNode = state.buildingData.nodes.find(n => n.id === state.currentNode);
-      
-      // Create AR arrow
-      arrowEntity.innerHTML = '';
-      
-      // Calculate direction
-      const dx = nextNode.x - currentNode.x;
-      const dy = nextNode.y - currentNode.y;
-      const angle = Math.atan2(dy, dx) * (180 / Math.PI);
-      
-      // Create arrow
-      const arrow = document.createElement('a-entity');
-      arrow.setAttribute('geometry', 'primitive: cone; height: 1; radiusBottom: 0.5');
-      arrow.setAttribute('material', 'color: #00ff00');
-      arrow.setAttribute('position', '0 0.5 0');
-      arrow.setAttribute('rotation', `0 ${angle} 0`);
-      arrowEntity.appendChild(arrow);
-      
-      // Add text if floor change
-      if (nextNode.floor !== currentNode.floor) {
-        const text = document.createElement('a-entity');
-        text.setAttribute('text', `value: Go to floor ${nextNode.floor}; color: black; align: center`);
-        text.setAttribute('position', '0 1.5 0');
-        text.setAttribute('scale', '2 2 2');
-        arrowEntity.appendChild(text);
+        distances[start] = 0;
+
+        while (queue.length) {
+          queue.sort((a, b) => distances[a] - distances[b]);
+          const minNode = queue.shift();
+
+          if (minNode === end) break;
+
+          graph[minNode].forEach((neighbor) => {
+            const alt = distances[minNode] + neighbor.weight;
+            if (alt < distances[neighbor.node]) {
+              distances[neighbor.node] = alt;
+              prev[neighbor.node] = minNode;
+            }
+          });
+        }
+
+        const path = [];
+        let current = end;
+        while (current) {
+          path.unshift(current);
+          current = prev[current];
+        }
+
+        return path;
       }
-    }
-    
-    // Draw 2D Map
-    function drawMap() {
-      const ctx = mapCanvas.getContext('2d');
-      ctx.clearRect(0, 0, 300, 300);
-      
-      // Draw paths
-      ctx.strokeStyle = '#cccccc';
-      ctx.lineWidth = 2;
-      state.buildingData.edges.forEach(edge => {
-        const from = state.buildingData.nodes.find(n => n.id === edge.from);
-        const to = state.buildingData.nodes.find(n => n.id === edge.to);
-        if (from && to && from.floor === to.floor) {
+
+      // Navigation functions
+      function showDestinations() {
+        destinationsDiv.innerHTML = "";
+        state.buildingData.nodes.forEach((node) => {
+          if (node.id !== state.currentNode) {
+            const div = document.createElement("div");
+            div.className = "dest-item";
+            div.textContent = node.name;
+            div.onclick = () => setDestination(node);
+            destinationsDiv.appendChild(div);
+          }
+        });
+        destinationsDiv.style.display = "block";
+      }
+
+      function setDestination(node) {
+        state.destination = node;
+        destinationsDiv.style.display = "none";
+        calculatePath();
+      }
+
+      function calculatePath() {
+        if (!state.currentNode || !state.destination || !state.graph) return;
+
+        state.path = dijkstra(
+          state.graph,
+          state.currentNode,
+          state.destination.id
+        );
+        navInfo.textContent = `Path: ${state.path.join(" → ")}`;
+        navigateToNext();
+      }
+
+      function navigateToNext() {
+        const nextNodeId = state.path[1];
+        const nextNode = state.buildingData.nodes.find(
+          (n) => n.id === nextNodeId
+        );
+        const currentNode = state.buildingData.nodes.find(
+          (n) => n.id === state.currentNode
+        );
+
+        const dx = nextNode.x - currentNode.x;
+        const dy = nextNode.y - currentNode.y;
+
+        // Vertical angle for floor changes
+        const verticalAngle =
+          nextNode.floor > currentNode.floor
+            ? -30
+            : nextNode.floor < currentNode.floor
+            ? 30
+            : 0;
+
+        arrowEntity.setAttribute("rotation", `0 ${angle} ${verticalAngle}`);
+      }
+
+      // Draw 2D Map
+      function drawMap() {
+        const ctx = mapCanvas.getContext("2d");
+        ctx.clearRect(0, 0, 300, 300);
+
+        // Draw paths
+        ctx.strokeStyle = "#cccccc";
+        ctx.lineWidth = 2;
+        state.buildingData.edges.forEach((edge) => {
+          const from = state.buildingData.nodes.find((n) => n.id === edge.from);
+          const to = state.buildingData.nodes.find((n) => n.id === edge.to);
+          if (from && to && from.floor === to.floor) {
+            ctx.beginPath();
+            ctx.moveTo(from.x * state.mapScale, from.y * state.mapScale);
+            ctx.lineTo(to.x * state.mapScale, to.y * state.mapScale);
+            ctx.stroke();
+          }
+        });
+
+        // Draw nodes
+        state.buildingData.nodes.forEach((node) => {
+          ctx.fillStyle =
+            node.id === state.currentNode
+              ? "#00ff00"
+              : node.id === state.destination?.id
+              ? "#ff0000"
+              : "#0000ff";
           ctx.beginPath();
-          ctx.moveTo(from.x * state.mapScale, from.y * state.mapScale);
-          ctx.lineTo(to.x * state.mapScale, to.y * state.mapScale);
-          ctx.stroke();
-        }
-      });
-      
-      // Draw nodes
-      state.buildingData.nodes.forEach(node => {
-        ctx.fillStyle = node.id === state.currentNode ? '#00ff00' : 
-                        node.id === state.destination?.id ? '#ff0000' : '#0000ff';
-        ctx.beginPath();
-        ctx.arc(node.x * state.mapScale, node.y * state.mapScale, 5, 0, Math.PI * 2);
-        ctx.fill();
-        
-        // Draw node ID
-        ctx.fillStyle = 'black';
-        ctx.font = '10px Arial';
-        ctx.fillText(node.name, node.x * state.mapScale + 8, node.y * state.mapScale);
-      });
-    }
-    
-    // Update UI
-    function updateUI() {
-      if (state.currentNode) {
-        navInfo.textContent = `Current: ${state.currentNode}`;
-        drawMap();
+          ctx.arc(
+            node.x * state.mapScale,
+            node.y * state.mapScale,
+            5,
+            0,
+            Math.PI * 2
+          );
+          ctx.fill();
+
+          // Draw node ID
+          ctx.fillStyle = "black";
+          ctx.font = "10px Arial";
+          ctx.fillText(
+            node.name,
+            node.x * state.mapScale + 8,
+            node.y * state.mapScale
+          );
+        });
       }
-    }
-  </script>
-</body>
+
+      // Update UI
+      function updateUI() {
+        if (state.currentNode) {
+          navInfo.textContent = `Current: ${state.currentNode}`;
+          drawMap();
+        }
+      }
+    </script>
+  </body>
 </html>

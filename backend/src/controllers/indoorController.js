@@ -1,13 +1,15 @@
-import IndoorLocation from '../models/IndoorLocation.js';
-import IndoorPath from '../models/IndoorPath.js';
-import Institute from '../models/Institute.js';
+import IndoorLocation from "../models/IndoorLocation.js";
+import IndoorPath from "../models/IndoorPath.js";
+import Institute from "../models/Institute.js";
 
 export const addIndoorLocation = async (req, res) => {
   try {
-    const { name, nodeId, building, floor, x, y, category, instituteId } = req.body;
-    
+    const { name, nodeId, building, floor, x, y, category, instituteId } =
+      req.body;
+
     const institute = await Institute.findById(instituteId);
-    if (!institute) return res.status(404).json({ message: "Institute not found" });
+    if (!institute)
+      return res.status(404).json({ message: "Institute not found" });
 
     const location = new IndoorLocation({
       name,
@@ -17,7 +19,7 @@ export const addIndoorLocation = async (req, res) => {
       x,
       y,
       category,
-      institute: instituteId
+      institute: instituteId,
     });
 
     await location.save();
@@ -29,8 +31,16 @@ export const addIndoorLocation = async (req, res) => {
 
 export const addIndoorPath = async (req, res) => {
   try {
-    const { from, to, distance, isStair, isElevator, floorChange, instituteId } = req.body;
-    
+    const {
+      from,
+      to,
+      distance,
+      isStair,
+      isElevator,
+      floorChange,
+      instituteId,
+    } = req.body;
+
     const path = new IndoorPath({
       from,
       to,
@@ -38,7 +48,7 @@ export const addIndoorPath = async (req, res) => {
       isStair,
       isElevator,
       floorChange,
-      institute: instituteId
+      institute: instituteId,
     });
 
     await path.save();
@@ -50,7 +60,19 @@ export const addIndoorPath = async (req, res) => {
 
 export const getIndoorLocations = async (req, res) => {
   try {
-    const locations = await IndoorLocation.find({ institute: req.params.instituteId });
+    // Verify user has access to institute
+    const hasAccess = await checkInstituteAccess(
+      req.user.id,
+      req.params.instituteId
+    );
+
+    if (!hasAccess) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
+    const locations = await IndoorLocation.find({
+      institute: req.params.instituteId,
+    });
     res.json(locations);
   } catch (err) {
     res.status(500).json({ message: "Server error" });
@@ -60,8 +82,8 @@ export const getIndoorLocations = async (req, res) => {
 export const getIndoorPaths = async (req, res) => {
   try {
     const paths = await IndoorPath.find()
-      .populate('from', 'name nodeId building floor')
-      .populate('to', 'name nodeId building floor');
+      .populate("from", "name nodeId building floor")
+      .populate("to", "name nodeId building floor");
     res.json(paths);
   } catch (err) {
     res.status(500).json({ message: "Server error" });
@@ -70,30 +92,39 @@ export const getIndoorPaths = async (req, res) => {
 
 export const getBuildingData = async (req, res) => {
   try {
-    const building = req.params.building;
-    const locations = await IndoorLocation.find({ building });
-    const paths = await IndoorPath.find().where('from').in(locations.map(l => l._id));
-    
+    const locationIds = locations.map((l) => l._id);
+    const paths = await IndoorPath.find({
+      $and: [{ from: { $in: locationIds } }, { to: { $in: locationIds } }],
+    });
+
     const graph = {
-      nodes: locations.map(loc => ({
+      nodes: locations.map((loc) => ({
         id: loc.nodeId,
         name: loc.name,
         floor: loc.floor,
         x: loc.x,
         y: loc.y,
-        category: loc.category
+        category: loc.category,
       })),
-      edges: paths.map(path => ({
+      edges: paths.map((path) => ({
         from: path.from.nodeId,
         to: path.to.nodeId,
         distance: path.distance,
         isStair: path.isStair,
         isElevator: path.isElevator,
-        floorChange: path.floorChange
-      }))
+        floorChange: path.floorChange,
+      })),
     };
-    
-    res.json(graph);
+
+    res.json({
+      nodes: locations.map((loc) => ({
+        id: loc.nodeId,
+        name: loc.name,
+        floor: loc.floor,
+        category: loc.category,
+      })),
+      edges: paths.map(/* ... */),
+    });
   } catch (err) {
     res.status(500).json({ message: "Server error" });
   }
@@ -102,7 +133,9 @@ export const getBuildingData = async (req, res) => {
 export const deleteIndoorLocation = async (req, res) => {
   try {
     await IndoorLocation.findByIdAndDelete(req.params.id);
-    await IndoorPath.deleteMany({ $or: [{ from: req.params.id }, { to: req.params.id }] });
+    await IndoorPath.deleteMany({
+      $or: [{ from: req.params.id }, { to: req.params.id }],
+    });
     res.json({ message: "Location deleted" });
   } catch (err) {
     res.status(500).json({ message: "Server error" });
