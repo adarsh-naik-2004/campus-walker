@@ -1,30 +1,30 @@
-import { useState, useEffect } from 'react';
-import { toast } from 'react-hot-toast'
-import api from '../../utils/api';
+import { useState, useEffect } from "react";
+import { toast } from "react-hot-toast";
+import api from "../../utils/api";
 
 export default function IndoorManagement({ instituteId }) {
-  const [activeTab, setActiveTab] = useState('locations');
+  const [activeTab, setActiveTab] = useState("locations");
   const [locations, setLocations] = useState([]);
   const [paths, setPaths] = useState([]);
   const [loading, setLoading] = useState(false);
-  
+
   const [formData, setFormData] = useState({
-    name: '',
-    nodeId: '',
-    building: '',
+    name: "",
+    nodeId: "",
+    building: "",
     floor: 1,
     x: 0,
     y: 0,
-    category: 'room'
+    category: "room",
   });
 
   const [pathData, setPathData] = useState({
-    from: '',
-    to: '',
+    from: "",
+    to: "",
     distance: 10,
     isStair: false,
     isElevator: false,
-    floorChange: 0
+    floorChange: 0,
   });
 
   useEffect(() => {
@@ -34,84 +34,88 @@ export default function IndoorManagement({ instituteId }) {
   const loadData = async () => {
     setLoading(true);
     try {
-      if (activeTab === 'locations') {
+      if (activeTab === "locations") {
         const { data } = await api.get(`/indoor/locations/${instituteId}`);
         setLocations(data);
       } else {
-        const { data } = await api.get(`/indoor/locations/${instituteId}`);
-        setLocations(data);
-        const pathsRes = await api.get('/indoor/paths');
-        setPaths(pathsRes.data);
+        const { data: locs } = await api.get(
+          `/indoor/locations/${instituteId}`
+        );
+        setLocations(locs);
+
+        // Use the new endpoint for fetching paths
+        const { data: pathsData } = await api.get("/indoor/paths");
+        setPaths(pathsData);
       }
     } catch (err) {
-      toast.error('Failed to load data');
+      toast.error("Failed to load data");
     }
     setLoading(false);
   };
 
   const handleAddLocation = async () => {
     try {
-      const { data } = await api.post('/indoor/locations', {
+      const { data } = await api.post("/indoor/locations", {
         ...formData,
-        instituteId
+        instituteId,
       });
       setLocations([...locations, data]);
       setFormData({
-        name: '',
-        nodeId: '',
-        building: '',
+        name: "",
+        nodeId: "",
+        building: "",
         floor: 1,
         x: 0,
         y: 0,
-        category: 'room'
+        category: "room",
       });
-      toast.success('Location added!');
+      toast.success("Location added!");
     } catch (err) {
-      toast.error('Failed to add location');
+      toast.error("Failed to add location");
     }
   };
 
   const handleAddPath = async () => {
     try {
-      const { data } = await api.post('/indoor/paths', {
+      const { data } = await api.post("/indoor/paths", {
         ...pathData,
-        instituteId
+        instituteId,
       });
       setPaths([...paths, data]);
       setPathData({
-        from: '',
-        to: '',
+        from: "",
+        to: "",
         distance: 10,
         isStair: false,
         isElevator: false,
-        floorChange: 0
+        floorChange: 0,
       });
-      toast.success('Path added!');
+      toast.success("Path added!");
     } catch (err) {
-      toast.error('Failed to add path');
+      toast.error("Failed to add path");
     }
   };
 
   const handleDeleteLocation = async (id) => {
-    if (window.confirm('Delete this location?')) {
+    if (window.confirm("Delete this location?")) {
       try {
         await api.delete(`/indoor/locations/${id}`);
-        setLocations(locations.filter(l => l._id !== id));
-        toast.success('Location deleted');
+        setLocations(locations.filter((l) => l._id !== id));
+        toast.success("Location deleted");
       } catch (err) {
-        toast.error('Failed to delete');
+        toast.error("Failed to delete");
       }
     }
   };
 
   const handleDeletePath = async (id) => {
-    if (window.confirm('Delete this path?')) {
+    if (window.confirm("Delete this path?")) {
       try {
         await api.delete(`/indoor/paths/${id}`);
-        setPaths(paths.filter(p => p._id !== id));
-        toast.success('Path deleted');
+        setPaths(paths.filter((p) => p._id !== id));
+        toast.success("Path deleted");
       } catch (err) {
-        toast.error('Failed to delete');
+        toast.error("Failed to delete");
       }
     }
   };
@@ -119,21 +123,29 @@ export default function IndoorManagement({ instituteId }) {
   return (
     <div className="bg-white rounded-2xl shadow-lg p-6 mt-6">
       <div className="flex border-b mb-6">
-        <button 
-          className={`px-4 py-2 font-medium ${activeTab === 'locations' ? 'border-b-2 border-blue-500 text-blue-600' : 'text-gray-500'}`}
-          onClick={() => setActiveTab('locations')}
+        <button
+          className={`px-4 py-2 font-medium ${
+            activeTab === "locations"
+              ? "border-b-2 border-blue-500 text-blue-600"
+              : "text-gray-500"
+          }`}
+          onClick={() => setActiveTab("locations")}
         >
           Indoor Locations
         </button>
-        <button 
-          className={`px-4 py-2 font-medium ${activeTab === 'paths' ? 'border-b-2 border-blue-500 text-blue-600' : 'text-gray-500'}`}
-          onClick={() => setActiveTab('paths')}
+        <button
+          className={`px-4 py-2 font-medium ${
+            activeTab === "paths"
+              ? "border-b-2 border-blue-500 text-blue-600"
+              : "text-gray-500"
+          }`}
+          onClick={() => setActiveTab("paths")}
         >
           Navigation Paths
         </button>
       </div>
 
-      {activeTab === 'locations' ? (
+      {activeTab === "locations" ? (
         <div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
             <div>
@@ -142,7 +154,9 @@ export default function IndoorManagement({ instituteId }) {
                 type="text"
                 className="w-full p-2 border rounded"
                 value={formData.name}
-                onChange={(e) => setFormData({...formData, name: e.target.value})}
+                onChange={(e) =>
+                  setFormData({ ...formData, name: e.target.value })
+                }
               />
             </div>
             <div>
@@ -151,7 +165,9 @@ export default function IndoorManagement({ instituteId }) {
                 type="text"
                 className="w-full p-2 border rounded"
                 value={formData.nodeId}
-                onChange={(e) => setFormData({...formData, nodeId: e.target.value})}
+                onChange={(e) =>
+                  setFormData({ ...formData, nodeId: e.target.value })
+                }
               />
             </div>
             <div>
@@ -160,7 +176,9 @@ export default function IndoorManagement({ instituteId }) {
                 type="text"
                 className="w-full p-2 border rounded"
                 value={formData.building}
-                onChange={(e) => setFormData({...formData, building: e.target.value})}
+                onChange={(e) =>
+                  setFormData({ ...formData, building: e.target.value })
+                }
               />
             </div>
             <div>
@@ -169,25 +187,35 @@ export default function IndoorManagement({ instituteId }) {
                 type="number"
                 className="w-full p-2 border rounded"
                 value={formData.floor}
-                onChange={(e) => setFormData({...formData, floor: parseInt(e.target.value)})}
+                onChange={(e) =>
+                  setFormData({ ...formData, floor: parseInt(e.target.value) })
+                }
               />
             </div>
             <div>
-              <label className="block text-sm font-medium mb-1">X Position</label>
+              <label className="block text-sm font-medium mb-1">
+                X Position
+              </label>
               <input
                 type="number"
                 className="w-full p-2 border rounded"
                 value={formData.x}
-                onChange={(e) => setFormData({...formData, x: parseInt(e.target.value)})}
+                onChange={(e) =>
+                  setFormData({ ...formData, x: parseInt(e.target.value) })
+                }
               />
             </div>
             <div>
-              <label className="block text-sm font-medium mb-1">Y Position</label>
+              <label className="block text-sm font-medium mb-1">
+                Y Position
+              </label>
               <input
                 type="number"
                 className="w-full p-2 border rounded"
                 value={formData.y}
-                onChange={(e) => setFormData({...formData, y: parseInt(e.target.value)})}
+                onChange={(e) =>
+                  setFormData({ ...formData, y: parseInt(e.target.value) })
+                }
               />
             </div>
             <div>
@@ -195,7 +223,9 @@ export default function IndoorManagement({ instituteId }) {
               <select
                 className="w-full p-2 border rounded"
                 value={formData.category}
-                onChange={(e) => setFormData({...formData, category: e.target.value})}
+                onChange={(e) =>
+                  setFormData({ ...formData, category: e.target.value })
+                }
               >
                 <option value="room">Room</option>
                 <option value="stair">Staircase</option>
@@ -204,7 +234,7 @@ export default function IndoorManagement({ instituteId }) {
               </select>
             </div>
           </div>
-          <button 
+          <button
             className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
             onClick={handleAddLocation}
           >
@@ -217,19 +247,25 @@ export default function IndoorManagement({ instituteId }) {
               <p className="text-gray-500">No locations added yet</p>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {locations.map(loc => (
+                {locations.map((loc) => (
                   <div key={loc._id} className="border rounded-lg p-4">
                     <div className="flex justify-between">
-                      <h4 className="font-bold">{loc.name} ({loc.nodeId})</h4>
-                      <button 
+                      <h4 className="font-bold">
+                        {loc.name} ({loc.nodeId})
+                      </h4>
+                      <button
                         className="text-red-500 hover:text-red-700"
                         onClick={() => handleDeleteLocation(loc._id)}
                       >
                         Delete
                       </button>
                     </div>
-                    <p>Building: {loc.building}, Floor: {loc.floor}</p>
-                    <p>Position: ({loc.x}, {loc.y})</p>
+                    <p>
+                      Building: {loc.building}, Floor: {loc.floor}
+                    </p>
+                    <p>
+                      Position: ({loc.x}, {loc.y})
+                    </p>
                     <p>Type: {loc.category}</p>
                   </div>
                 ))}
@@ -241,14 +277,18 @@ export default function IndoorManagement({ instituteId }) {
         <div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
             <div>
-              <label className="block text-sm font-medium mb-1">From Location</label>
+              <label className="block text-sm font-medium mb-1">
+                From Location
+              </label>
               <select
                 className="w-full p-2 border rounded"
                 value={pathData.from}
-                onChange={(e) => setPathData({...pathData, from: e.target.value})}
+                onChange={(e) =>
+                  setPathData({ ...pathData, from: e.target.value })
+                }
               >
                 <option value="">Select start point</option>
-                {locations.map(loc => (
+                {locations.map((loc) => (
                   <option key={loc._id} value={loc._id}>
                     {loc.name} ({loc.building}-{loc.floor})
                   </option>
@@ -256,14 +296,18 @@ export default function IndoorManagement({ instituteId }) {
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium mb-1">To Location</label>
+              <label className="block text-sm font-medium mb-1">
+                To Location
+              </label>
               <select
                 className="w-full p-2 border rounded"
                 value={pathData.to}
-                onChange={(e) => setPathData({...pathData, to: e.target.value})}
+                onChange={(e) =>
+                  setPathData({ ...pathData, to: e.target.value })
+                }
               >
                 <option value="">Select end point</option>
-                {locations.map(loc => (
+                {locations.map((loc) => (
                   <option key={loc._id} value={loc._id}>
                     {loc.name} ({loc.building}-{loc.floor})
                   </option>
@@ -271,21 +315,35 @@ export default function IndoorManagement({ instituteId }) {
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium mb-1">Distance (meters)</label>
+              <label className="block text-sm font-medium mb-1">
+                Distance (meters)
+              </label>
               <input
                 type="number"
                 className="w-full p-2 border rounded"
                 value={pathData.distance}
-                onChange={(e) => setPathData({...pathData, distance: parseInt(e.target.value)})}
+                onChange={(e) =>
+                  setPathData({
+                    ...pathData,
+                    distance: parseInt(e.target.value),
+                  })
+                }
               />
             </div>
             <div>
-              <label className="block text-sm font-medium mb-1">Floor Change</label>
+              <label className="block text-sm font-medium mb-1">
+                Floor Change
+              </label>
               <input
                 type="number"
                 className="w-full p-2 border rounded"
                 value={pathData.floorChange}
-                onChange={(e) => setPathData({...pathData, floorChange: parseInt(e.target.value)})}
+                onChange={(e) =>
+                  setPathData({
+                    ...pathData,
+                    floorChange: parseInt(e.target.value),
+                  })
+                }
               />
             </div>
             <div className="flex items-center">
@@ -293,7 +351,9 @@ export default function IndoorManagement({ instituteId }) {
                 type="checkbox"
                 id="isStair"
                 checked={pathData.isStair}
-                onChange={(e) => setPathData({...pathData, isStair: e.target.checked})}
+                onChange={(e) =>
+                  setPathData({ ...pathData, isStair: e.target.checked })
+                }
                 className="mr-2"
               />
               <label htmlFor="isStair">Staircase Path</label>
@@ -303,13 +363,15 @@ export default function IndoorManagement({ instituteId }) {
                 type="checkbox"
                 id="isElevator"
                 checked={pathData.isElevator}
-                onChange={(e) => setPathData({...pathData, isElevator: e.target.checked})}
+                onChange={(e) =>
+                  setPathData({ ...pathData, isElevator: e.target.checked })
+                }
                 className="mr-2"
               />
               <label htmlFor="isElevator">Elevator Path</label>
             </div>
           </div>
-          <button 
+          <button
             className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
             onClick={handleAddPath}
           >
@@ -322,22 +384,32 @@ export default function IndoorManagement({ instituteId }) {
               <p className="text-gray-500">No paths added yet</p>
             ) : (
               <div className="space-y-4">
-                {paths.map(path => (
+                {paths.map((path) => (
                   <div key={path._id} className="border rounded-lg p-4">
                     <div className="flex justify-between">
                       <div>
-                        <p><strong>From:</strong> {path.from?.name || 'Unknown'}</p>
-                        <p><strong>To:</strong> {path.to?.name || 'Unknown'}</p>
+                        <p>
+                          <strong>From:</strong> {path.from?.name || "Unknown"}
+                        </p>
+                        <p>
+                          <strong>To:</strong> {path.to?.name || "Unknown"}
+                        </p>
                       </div>
-                      <button 
+                      <button
                         className="text-red-500 hover:text-red-700"
                         onClick={() => handleDeletePath(path._id)}
                       >
                         Delete
                       </button>
                     </div>
-                    <p>Distance: {path.distance}m | Floor Change: {path.floorChange}</p>
-                    <p>Stair: {path.isStair ? 'Yes' : 'No'} | Elevator: {path.isElevator ? 'Yes' : 'No'}</p>
+                    <p>
+                      Distance: {path.distance}m | Floor Change:{" "}
+                      {path.floorChange}
+                    </p>
+                    <p>
+                      Stair: {path.isStair ? "Yes" : "No"} | Elevator:{" "}
+                      {path.isElevator ? "Yes" : "No"}
+                    </p>
                   </div>
                 ))}
               </div>

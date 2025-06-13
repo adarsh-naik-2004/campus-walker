@@ -57,6 +57,17 @@ export const getIndoorLocations = async (req, res) => {
   }
 };
 
+export const getIndoorPaths = async (req, res) => {
+  try {
+    const paths = await IndoorPath.find()
+      .populate('from', 'name nodeId building floor')
+      .populate('to', 'name nodeId building floor');
+    res.json(paths);
+  } catch (err) {
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
 export const getBuildingData = async (req, res) => {
   try {
     const building = req.params.building;
