@@ -3,6 +3,7 @@ import { toast } from "react-hot-toast";
 import api from "../../utils/api";
 import QRCode from "react-qr-code";
 import { toPng } from "html-to-image";
+import { useRef } from "react";
 
 export default function IndoorManagement({ instituteId }) {
   const [activeTab, setActiveTab] = useState("locations");
@@ -40,16 +41,32 @@ export default function IndoorManagement({ instituteId }) {
     setLoading(true);
     try {
       if (activeTab === "locations") {
-        const { data } = await api.get(`/indoor/locations/${instituteId}`);
+        const { data } = await api.get(`/indoor/locations/${instituteId}`, {
+          headers: {
+            "x-auth-token": localStorage.getItem("token"),
+            "Content-Type": "multipart/form-data",
+          },
+        });
         setLocations(data);
       } else {
         const { data: locs } = await api.get(
-          `/indoor/locations/${instituteId}`
+          `/indoor/locations/${instituteId}`,
+          {
+            headers: {
+              "x-auth-token": localStorage.getItem("token"),
+              "Content-Type": "multipart/form-data",
+            },
+          }
         );
         setLocations(locs);
 
         // Use the new endpoint for fetching paths
-        const { data: pathsData } = await api.get("/indoor/paths");
+        const { data: pathsData } = await api.get("/indoor/paths", {
+          headers: {
+            "x-auth-token": localStorage.getItem("token"),
+            "Content-Type": "multipart/form-data",
+          },
+        });
         setPaths(pathsData);
       }
     } catch (err) {
@@ -63,6 +80,10 @@ export default function IndoorManagement({ instituteId }) {
       const { data } = await api.post("/indoor/locations", {
         ...formData,
         instituteId,
+        headers: {
+          "x-auth-token": localStorage.getItem("token"),
+          "Content-Type": "multipart/form-data",
+        },
       });
       setLocations([...locations, data]);
       setFormData({
@@ -85,6 +106,10 @@ export default function IndoorManagement({ instituteId }) {
       const { data } = await api.post("/indoor/paths", {
         ...pathData,
         instituteId,
+        headers: {
+          "x-auth-token": localStorage.getItem("token"),
+          "Content-Type": "multipart/form-data",
+        },
       });
       setPaths([...paths, data]);
       setPathData({
@@ -104,7 +129,12 @@ export default function IndoorManagement({ instituteId }) {
   const handleDeleteLocation = async (id) => {
     if (window.confirm("Delete this location?")) {
       try {
-        await api.delete(`/indoor/locations/${id}`);
+        await api.delete(`/indoor/locations/${id}`, { 
+          headers: { 
+            'x-auth-token': localStorage.getItem('token'),
+            'Content-Type': 'multipart/form-data'
+          } 
+        });
         setLocations(locations.filter((l) => l._id !== id));
         toast.success("Location deleted");
       } catch (err) {
@@ -116,7 +146,12 @@ export default function IndoorManagement({ instituteId }) {
   const handleDeletePath = async (id) => {
     if (window.confirm("Delete this path?")) {
       try {
-        await api.delete(`/indoor/paths/${id}`);
+        await api.delete(`/indoor/paths/${id}`, { 
+          headers: { 
+            'x-auth-token': localStorage.getItem('token'),
+            'Content-Type': 'multipart/form-data'
+          } 
+        });
         setPaths(paths.filter((p) => p._id !== id));
         toast.success("Path deleted");
       } catch (err) {
@@ -126,18 +161,17 @@ export default function IndoorManagement({ instituteId }) {
   };
 
   const downloadQRCode = () => {
-  if (!qrRef.current) return;
+    if (!qrRef.current) return;
 
-  toPng(qrRef.current)
-    .then((dataUrl) => {
-      const link = document.createElement("a");
-      link.download = `qr-${currentQRNode.nodeId}.png`;
-      link.href = dataUrl;
-      link.click();
-    })
-    .catch(() => toast.error("QR download failed"));
-};
-
+    toPng(qrRef.current)
+      .then((dataUrl) => {
+        const link = document.createElement("a");
+        link.download = `qr-${currentQRNode.nodeId}.png`;
+        link.href = dataUrl;
+        link.click();
+      })
+      .catch(() => toast.error("QR download failed"));
+  };
 
   const generateQRForLocation = (location) => {
     setCurrentQRNode(location);

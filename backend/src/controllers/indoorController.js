@@ -60,16 +60,6 @@ export const addIndoorPath = async (req, res) => {
 
 export const getIndoorLocations = async (req, res) => {
   try {
-    // Verify user has access to institute
-    const hasAccess = await checkInstituteAccess(
-      req.user.id,
-      req.params.instituteId
-    );
-
-    if (!hasAccess) {
-      return res.status(403).json({ message: "Access denied" });
-    }
-
     const locations = await IndoorLocation.find({
       institute: req.params.instituteId,
     });
