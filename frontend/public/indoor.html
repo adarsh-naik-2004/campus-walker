@@ -1,0 +1,720 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+    <title>Multi-Story Indoor AR Navigation</title>
+    <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #1a2a6c, #2d388a, #1a2a6c);
+            color: white;
+            min-height: 100vh;
+            overflow-x: hidden;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 100%;
+            margin: 0 auto;
+            text-align: center;
+        }
+        
+        header {
+            margin-bottom: 20px;
+            padding: 20px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 15px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            backdrop-filter: blur(4px);
+        }
+        
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+        }
+        
+        .subtitle {
+            font-size: 1.2rem;
+            opacity: 0.9;
+            margin-bottom: 20px;
+        }
+        
+        .app-container {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .panel {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            backdrop-filter: blur(4px);
+        }
+        
+        .camera-container {
+            position: relative;
+            width: 100%;
+            height: 60vh;
+            border-radius: 15px;
+            overflow: hidden;
+            margin: 0 auto;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+        }
+        
+        #video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transform: scaleX(-1); /* Mirror the video */
+        }
+        
+        #canvas {
+            display: none;
+        }
+        
+        .ar-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+        
+        .direction-arrow {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 80px;
+            color: #4CAF50;
+            text-shadow: 0 0 20px rgba(76, 175, 80, 0.7);
+            transition: transform 0.3s ease;
+            opacity: 0.9;
+        }
+        
+        .floor-indicator {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 10px 15px;
+            border-radius: 30px;
+            font-size: 1.1rem;
+            font-weight: bold;
+            z-index: 10;
+        }
+        
+        .controls {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        
+        select, button {
+            padding: 15px;
+            border-radius: 12px;
+            border: none;
+            font-size: 1.1rem;
+            background: rgba(255, 255, 255, 0.9);
+            color: #1a2a6c;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+        }
+        
+        select {
+            background: rgba(255, 255, 255, 0.9);
+            text-align: center;
+        }
+        
+        button {
+            background: linear-gradient(to right, #4CAF50, #2E7D32);
+            color: white;
+            padding: 16px;
+        }
+        
+        button:disabled {
+            background: rgba(128, 128, 128, 0.7);
+            cursor: not-allowed;
+        }
+        
+        button:hover:not(:disabled) {
+            transform: translateY(-3px);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+        }
+        
+        .status {
+            font-size: 1.1rem;
+            padding: 15px;
+            border-radius: 12px;
+            background: rgba(0, 0, 0, 0.4);
+            margin-top: 10px;
+            min-height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            gap: 8px;
+        }
+        
+        .status-row {
+            display: flex;
+            justify-content: space-between;
+            width: 100%;
+        }
+        
+        .status-label {
+            font-weight: bold;
+            color: #FFC107;
+        }
+        
+        .info-panel {
+            text-align: left;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 15px;
+            padding: 20px;
+            margin-top: 20px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            backdrop-filter: blur(4px);
+        }
+        
+        h2 {
+            font-size: 1.8rem;
+            margin-bottom: 15px;
+            color: #4CAF50;
+            text-align: center;
+        }
+        
+        h3 {
+            font-size: 1.4rem;
+            margin: 20px 0 10px;
+            color: #FFC107;
+        }
+        
+        ul {
+            padding-left: 20px;
+            margin-bottom: 15px;
+        }
+        
+        li {
+            margin-bottom: 10px;
+            line-height: 1.6;
+        }
+        
+        .qr-example {
+            display: flex;
+            justify-content: space-around;
+            flex-wrap: wrap;
+            margin: 20px 0;
+        }
+        
+        .qr-item {
+            background: white;
+            padding: 10px;
+            border-radius: 10px;
+            width: 150px;
+            margin: 10px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+        }
+        
+        .qr-item img {
+            width: 100%;
+            height: auto;
+            border-radius: 5px;
+        }
+        
+        .qr-item p {
+            color: #1a2a6c;
+            font-weight: bold;
+            margin-top: 5px;
+            font-size: 0.9rem;
+        }
+        
+        .distance-display {
+            font-size: 1.3rem;
+            font-weight: bold;
+            margin-top: 10px;
+            color: #FFC107;
+            text-align: center;
+        }
+        
+        .floor-controls {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 10px;
+        }
+        
+        .floor-btn {
+            flex: 1;
+            margin: 0 5px;
+            padding: 12px;
+            font-size: 1rem;
+        }
+        
+        .staircase-indicator {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(255, 193, 7, 0.9);
+            color: #1a2a6c;
+            padding: 12px 25px;
+            border-radius: 30px;
+            font-weight: bold;
+            z-index: 10;
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { transform: translateX(-50%) scale(1); }
+            50% { transform: translateX(-50%) scale(1.05); }
+            100% { transform: translateX(-50%) scale(1); }
+        }
+        
+        @media (min-width: 768px) {
+            .app-container {
+                flex-direction: row;
+            }
+            
+            .controls {
+                flex: 1;
+            }
+            
+            .camera-container {
+                flex: 2;
+            }
+            
+            .container {
+                max-width: 1200px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Multi-Story Indoor AR Navigation</h1>
+            <p class="subtitle">Scan QR codes to navigate multi-floor buildings with augmented reality</p>
+        </header>
+        
+        <div class="app-container">
+            <div class="camera-container">
+                <video id="video" autoplay playsinline></video>
+                <canvas id="canvas"></canvas>
+                <div class="ar-overlay">
+                    <div class="floor-indicator">Floor: <span id="current-floor">--</span></div>
+                    <div class="direction-arrow">↑</div>
+                    <div class="staircase-indicator" id="staircase-indicator" style="display: none;">
+                        Go to Stairs/Elevator
+                    </div>
+                </div>
+            </div>
+            
+            <div class="controls panel">
+                <h2>Navigation Controls</h2>
+                
+                <div class="floor-controls">
+                    <button class="floor-btn" id="floor-down">⬇ Floor Down</button>
+                    <button class="floor-btn" id="floor-up">⬆ Floor Up</button>
+                </div>
+                
+                <select id="destination-select">
+                    <option value="">-- Select Destination --</option>
+                    <optgroup label="Ground Floor">
+                        <option value="reception">Reception</option>
+                        <option value="cafeteria">Cafeteria</option>
+                    </optgroup>
+                    <optgroup label="First Floor">
+                        <option value="conference">Conference Room</option>
+                        <option value="it">IT Department</option>
+                    </optgroup>
+                    <optgroup label="Second Floor">
+                        <option value="manager">Manager's Office</option>
+                        <option value="hr">HR Department</option>
+                    </optgroup>
+                </select>
+                
+                <button id="scan-btn">Scan QR Code</button>
+                <button id="start-nav" disabled>Start Navigation</button>
+                <button id="reset-btn">Reset Navigation</button>
+                
+                <div class="status" id="status">
+                    <div class="status-row">
+                        <span>Status:</span>
+                        <span id="status-text">Ready to scan QR code</span>
+                    </div>
+                    <div class="status-row">
+                        <span class="status-label">Current:</span>
+                        <span id="current-location">--</span>
+                    </div>
+                    <div class="status-row">
+                        <span class="status-label">Destination:</span>
+                        <span id="destination-location">--</span>
+                    </div>
+                </div>
+                
+                <div class="distance-display" id="distance-display"></div>
+            </div>
+        </div>
+        
+        <div class="info-panel">
+            <h2>How It Works</h2>
+            
+            <h3>Multi-Floor QR Code System</h3>
+            <p>For multi-story buildings, QR codes include floor information in this format:</p>
+            <p><code>location_name|x|y|floor</code></p>
+            <p>Example: <code>conference|30|15|1</code> for a conference room on the first floor</p>
+            
+            <div class="qr-example">
+                <div class="qr-item">
+                    <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=reception|0|0|0" alt="Reception QR">
+                    <p>Reception (Floor 0)</p>
+                </div>
+                <div class="qr-item">
+                    <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=conference|30|15|1" alt="Conference Room QR">
+                    <p>Conference (Floor 1)</p>
+                </div>
+                <div class="qr-item">
+                    <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=manager|20|25|2" alt="Manager's Office QR">
+                    <p>Manager (Floor 2)</p>
+                </div>
+            </div>
+            
+            <h3>Navigation Process</h3>
+            <ul>
+                <li><strong>Scan a QR code</strong> to set your current position and floor</li>
+                <li><strong>Select your destination</strong> from the dropdown menu</li>
+                <li><strong>Start navigation</strong> to see AR directions</li>
+                <li>If destination is on another floor:
+                    <ul>
+                        <li>System guides you to the nearest stairs/elevator</li>
+                        <li>After changing floors, scan a QR code on the new floor</li>
+                        <li>Navigation continues to your destination</li>
+                    </ul>
+                </li>
+                <li><strong>Follow the green arrow</strong> in your camera view</li>
+            </ul>
+            
+            <h3>Implementation Notes</h3>
+            <ul>
+                <li>Works on mobile devices with cameras</li>
+                <li>No installation required - runs in any modern browser</li>
+                <li>QR codes placed at key locations on each floor</li>
+                <li>Coordinates are relative to each floor's layout</li>
+                <li>Staircases/elevators are predefined transition points</li>
+                <li>Arrow points toward destination using device orientation</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        // DOM Elements
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const scanBtn = document.getElementById('scan-btn');
+        const startNavBtn = document.getElementById('start-nav');
+        const resetBtn = document.getElementById('reset-btn');
+        const statusText = document.getElementById('status-text');
+        const currentLocationDisplay = document.getElementById('current-location');
+        const destinationLocationDisplay = document.getElementById('destination-location');
+        const destinationSelect = document.getElementById('destination-select');
+        const directionArrow = document.querySelector('.direction-arrow');
+        const distanceDisplay = document.getElementById('distance-display');
+        const currentFloorDisplay = document.getElementById('current-floor');
+        const floorUpBtn = document.getElementById('floor-up');
+        const floorDownBtn = document.getElementById('floor-down');
+        const staircaseIndicator = document.getElementById('staircase-indicator');
+        
+        // App State
+        let currentPosition = null;
+        let destination = null;
+        let isScanning = false;
+        let animationFrame = null;
+        let deviceOrientation = { alpha: 0 };
+        let currentFloor = 0;
+        let navigatingToStairs = false;
+        
+        // Known locations (name, x, y, floor)
+        const locations = {
+            // Ground floor (0)
+            reception: { name: "Reception", x: 0, y: 0, floor: 0 },
+            cafeteria: { name: "Cafeteria", x: 10, y: 40, floor: 0 },
+            ground_stairs: { name: "Stairs (Ground)", x: 5, y: 5, floor: 0 },
+            
+            // First floor (1)
+            conference: { name: "Conference Room", x: 30, y: 15, floor: 1 },
+            it: { name: "IT Department", x: 25, y: 30, floor: 1 },
+            first_stairs: { name: "Stairs (First)", x: 5, y: 5, floor: 1 },
+            
+            // Second floor (2)
+            manager: { name: "Manager's Office", x: 40, y: 10, floor: 2 },
+            hr: { name: "HR Department", x: 35, y: 35, floor: 2 },
+            second_stairs: { name: "Stairs (Second)", x: 5, y: 5, floor: 2 }
+        };
+        
+        // Staircase locations for each floor
+        const staircases = {
+            0: locations.ground_stairs,
+            1: locations.first_stairs,
+            2: locations.second_stairs
+        };
+        
+        // Initialize camera
+        async function initCamera() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { facingMode: 'environment' } 
+                });
+                video.srcObject = stream;
+                statusText.textContent = "Camera ready. Press 'Scan QR Code' to start.";
+                currentFloorDisplay.textContent = currentFloor;
+            } catch (err) {
+                console.error("Camera error: ", err);
+                statusText.textContent = "Camera access denied. Please enable camera permissions.";
+            }
+        }
+        
+        // Start QR scanning
+        function startScanning() {
+            if (isScanning) return;
+            
+            isScanning = true;
+            scanBtn.textContent = "Scanning...";
+            statusText.textContent = "Scanning for QR codes...";
+            
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            
+            function scanFrame() {
+                if (!isScanning) return;
+                
+                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                const code = jsQR(imageData.data, imageData.width, imageData.height);
+                
+                if (code) {
+                    handleQRCode(code.data);
+                } else {
+                    animationFrame = requestAnimationFrame(scanFrame);
+                }
+            }
+            
+            scanFrame();
+        }
+        
+        // Stop QR scanning
+        function stopScanning() {
+            isScanning = false;
+            scanBtn.textContent = "Scan QR Code";
+            if (animationFrame) {
+                cancelAnimationFrame(animationFrame);
+            }
+        }
+        
+        // Handle scanned QR data
+        function handleQRCode(data) {
+            stopScanning();
+            
+            try {
+                // Expected format: "location|x|y|floor"
+                const parts = data.split('|');
+                if (parts.length !== 4) throw new Error("Invalid QR format");
+                
+                const [name, x, y, floor] = parts;
+                currentPosition = {
+                    name: name,
+                    x: parseFloat(x),
+                    y: parseFloat(y),
+                    floor: parseInt(floor)
+                };
+                
+                // Update current floor
+                currentFloor = currentPosition.floor;
+                currentFloorDisplay.textContent = currentFloor;
+                
+                currentLocationDisplay.textContent = `${name} (Floor ${floor})`;
+                statusText.textContent = `Position set to ${name}`;
+                
+                // If we were navigating to stairs, check if we reached them
+                if (navigatingToStairs && isAtStairs(currentPosition)) {
+                    statusText.textContent = "You've reached the stairs. Change floors and scan a QR code on the new floor.";
+                    staircaseIndicator.style.display = "none";
+                    navigatingToStairs = false;
+                }
+                
+                startNavBtn.disabled = false;
+            } catch (e) {
+                console.error("QR parse error:", e);
+                statusText.textContent = "Invalid QR code. Please scan a location QR code.";
+            }
+        }
+        
+        // Check if current position is at stairs
+        function isAtStairs(position) {
+            const stairs = staircases[position.floor];
+            if (!stairs) return false;
+            
+            // Simple distance check (within 3 meters)
+            const dx = position.x - stairs.x;
+            const dy = position.y - stairs.y;
+            return Math.sqrt(dx*dx + dy*dy) < 3;
+        }
+        
+        // Start navigation
+        function startNavigation() {
+            const destValue = destinationSelect.value;
+            if (!destValue || !currentPosition) return;
+            
+            destination = locations[destValue];
+            if (!destination) return;
+            
+            destinationLocationDisplay.textContent = `${destination.name} (Floor ${destination.floor})`;
+            statusText.textContent = `Navigating to ${destination.name}`;
+            
+            // Check if destination is on another floor
+            if (destination.floor !== currentPosition.floor) {
+                navigatingToStairs = true;
+                staircaseIndicator.style.display = "block";
+                statusText.textContent = `Destination is on floor ${destination.floor}. Navigating to stairs...`;
+            } else {
+                navigatingToStairs = false;
+                staircaseIndicator.style.display = "none";
+            }
+            
+            // Start orientation listening
+            if (typeof DeviceOrientationEvent !== 'undefined' && 
+                typeof DeviceOrientationEvent.requestPermission === 'function') {
+                DeviceOrientationEvent.requestPermission()
+                    .then(permissionState => {
+                        if (permissionState === 'granted') {
+                            window.addEventListener('deviceorientation', handleOrientation);
+                        }
+                    })
+                    .catch(console.error);
+            } else {
+                window.addEventListener('deviceorientation', handleOrientation);
+            }
+            
+            // Start updating navigation
+            updateNavigation();
+        }
+        
+        // Handle device orientation
+        function handleOrientation(event) {
+            deviceOrientation.alpha = event.alpha; // Compass direction (0-360)
+        }
+        
+        // Update navigation arrow
+        function updateNavigation() {
+            if (!currentPosition || !destination) return;
+            
+            let target = destination;
+            
+            // If destination is on another floor, navigate to stairs instead
+            if (navigatingToStairs) {
+                target = staircases[currentFloor];
+                if (!target) {
+                    statusText.textContent = "Error: No stairs found on this floor";
+                    return;
+                }
+            }
+            
+            // Calculate direction to target
+            const dx = target.x - currentPosition.x;
+            const dy = target.y - currentPosition.y;
+            
+            // Calculate distance
+            const distance = Math.sqrt(dx * dx + dy * dy).toFixed(1);
+            
+            // Update display based on navigation state
+            if (navigatingToStairs) {
+                distanceDisplay.textContent = `Distance to stairs: ${distance} meters`;
+            } else {
+                distanceDisplay.textContent = `Distance to destination: ${distance} meters`;
+            }
+            
+            // Calculate bearing angle (0-360 degrees)
+            let targetAngle = Math.atan2(dy, dx) * 180 / Math.PI;
+            targetAngle = (targetAngle + 360) % 360;
+            
+            // Convert to compass heading (0 = North, 90 = East, etc.)
+            const compassAngle = (450 - targetAngle) % 360;
+            
+            // Calculate relative angle to destination
+            if (deviceOrientation.alpha !== null) {
+                const relativeAngle = (compassAngle - deviceOrientation.alpha + 360) % 360;
+                directionArrow.style.transform = `translate(-50%, -50%) rotate(${relativeAngle}deg)`;
+            }
+            
+            // Continue updating
+            requestAnimationFrame(updateNavigation);
+        }
+        
+        // Change floor level
+        function changeFloor(direction) {
+            if (direction === 'up' && currentFloor < 2) {
+                currentFloor++;
+            } else if (direction === 'down' && currentFloor > 0) {
+                currentFloor--;
+            }
+            
+            currentFloorDisplay.textContent = currentFloor;
+            statusText.textContent = `Floor changed to ${currentFloor}. Scan a QR code to set position.`;
+            
+            // Reset position since we changed floors
+            currentPosition = null;
+            currentLocationDisplay.textContent = "--";
+            startNavBtn.disabled = true;
+        }
+        
+        // Reset application
+        function resetApp() {
+            stopScanning();
+            currentPosition = null;
+            destination = null;
+            startNavBtn.disabled = true;
+            destinationSelect.value = "";
+            statusText.textContent = "Ready to scan QR code";
+            currentLocationDisplay.textContent = "--";
+            destinationLocationDisplay.textContent = "--";
+            distanceDisplay.textContent = "";
+            directionArrow.style.transform = "translate(-50%, -50%) rotate(0deg)";
+            staircaseIndicator.style.display = "none";
+            navigatingToStairs = false;
+            
+            // Remove event listeners
+            window.removeEventListener('deviceorientation', handleOrientation);
+        }
+        
+        // Event Listeners
+        scanBtn.addEventListener('click', startScanning);
+        startNavBtn.addEventListener('click', startNavigation);
+        resetBtn.addEventListener('click', resetApp);
+        floorUpBtn.addEventListener('click', () => changeFloor('up'));
+        floorDownBtn.addEventListener('click', () => changeFloor('down'));
+        destinationSelect.addEventListener('change', function() {
+            if (this.value && currentPosition) {
+                startNavBtn.disabled = false;
+            }
+        });
+        
+        // Initialize the app
+        window.addEventListener('load', initCamera);
+    </script>
+</body>
+</html>

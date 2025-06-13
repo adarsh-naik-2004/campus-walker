@@ -283,7 +283,9 @@
       }
 
       .ar-arrow {
-        animation: bounce 2s infinite;
+        position: absolute;
+        transform-origin: center bottom;
+        animation: pulseArrow 1.5s infinite alternate;
       }
 
       @keyframes bounce {
@@ -540,12 +542,23 @@
       }
 
       .arrow-head {
+        width: 0;
+        height: 0;
+        border-left: 15px solid transparent;
+        border-right: 15px solid transparent;
+        border-bottom: 30px solid #4caf50;
         position: relative;
         transform-style: preserve-3d;
       }
 
       .arrow-shaft {
-        position: relative;
+        width: 8px;
+        height: 50px;
+        background: #4caf50;
+        position: absolute;
+        top: 30px;
+        left: 50%;
+        transform: translateX(-50%);
       }
 
       .direction-text {
@@ -752,15 +765,18 @@
       }
 
       function calculateBearing(lat1, lng1, lat2, lng2) {
+        const R = 6371; // Earth radius in km
         const dLng = ((lng2 - lng1) * Math.PI) / 180;
         const lat1Rad = (lat1 * Math.PI) / 180;
         const lat2Rad = (lat2 * Math.PI) / 180;
+
         const y = Math.sin(dLng) * Math.cos(lat2Rad);
         const x =
           Math.cos(lat1Rad) * Math.sin(lat2Rad) -
           Math.sin(lat1Rad) * Math.cos(lat2Rad) * Math.cos(dLng);
-        const bearing = (Math.atan2(y, x) * 180) / Math.PI;
-        return (bearing + 360) % 360;
+
+        const bearing = Math.atan2(y, x);
+        return ((bearing * 180) / Math.PI + 360) % 360;
       }
 
       function bearingToDirection(bearing, userHeading) {
@@ -873,137 +889,119 @@
       }
 
       // NEW: Create arrow marker at position with specified direction
-      function createArrowAtPosition(
-        lat,
-        lng,
-        bearing,
-        path,
-        size = 1.0,
-        height = 1.5,
-        isNode = false
-      ) {
-        const arrow = document.createElement("a-entity");
-        arrow.classList.add("ar-arrow", "arrow-marker");
-        arrow.setAttribute("gps-entity-place", {
-          latitude: lat,
-          longitude: lng,
-          altitude: height,
-        });
+      function createDynamicArrow(lat, lng, bearing, height = 1.5, isNode = false) {
+      const arrow = document.createElement("a-entity");
+      arrow.classList.add("ar-arrow");
+      arrow.setAttribute("gps-entity-place", {
+        latitude: lat,
+        longitude: lng,
+        altitude: height
+      });
+      
+      // Create arrow with dynamic orientation
+      const arrowContainer = document.createElement("a-entity");
+      arrowContainer.setAttribute("rotation", `0 ${bearing} 0`);
+      
+      const arrowHead = document.createElement("a-entity");
+      arrowHead.classList.add("arrow-head");
+      arrowHead.setAttribute("geometry", "primitive: cone; radiusBottom: 0.5; radiusTop: 0; height: 1");
+      arrowHead.setAttribute("material", "color: #4CAF50; metalness: 0.5; roughness: 0.3");
+      arrowHead.setAttribute("position", "0 0.75 0");
+      
+      const arrowShaft = document.createElement("a-entity");
+      arrowShaft.classList.add("arrow-shaft");
+      arrowShaft.setAttribute("geometry", "primitive: cylinder; radius: 0.1; height: 1.5");
+      arrowShaft.setAttribute("material", "color: #4CAF50");
+      arrowShaft.setAttribute("position", "0 0 0");
+      
+      arrowContainer.appendChild(arrowHead);
+      arrowContainer.appendChild(arrowShaft);
+      arrow.appendChild(arrowContainer);
+      
+      // Add pulsing animation
+      arrow.setAttribute("animation", {
+        property: "scale",
+        dir: "alternate",
+        dur: 1000,
+        loop: true,
+        from: "1 1 1",
+        to: "1.1 1.1 1.1"
+      });
+      
+      elements.scene.appendChild(arrow);
+      pathArrows.push(arrow);
+      return arrow;
+    }
 
-        const glbEntity = document.createElement("a-entity");
-        glbEntity.setAttribute("gltf-model", "./assets/arrow.glb");
-        glbEntity.setAttribute("scale", "1 1 1");
-
-        if (isNode) {
-          // 🪧 At node: vertical like signboard
-          glbEntity.setAttribute("rotation", `0 ${bearing} 0`);
-          glbEntity.setAttribute("position", "0 0 0");
-        } else {
-          // ➡️ On route: flat and low to the ground
-          glbEntity.setAttribute("rotation", `-90 ${bearing} 0`);
-          glbEntity.setAttribute("position", "0 0 0");
-        }
-
-        // Optional: subtle pulsing animation for visibility
-        glbEntity.setAttribute("animation", {
-          property: "scale",
-          dir: "alternate",
-          dur: 1000,
-          loop: true,
-          from: "1 1 1",
-          to: "1.1 1.1 1.1",
-        });
-
-        arrow.appendChild(glbEntity);
-        elements.scene.appendChild(arrow);
-        pathArrows.push(arrow);
-      }
-
-      function createPathArrows() {
-        clearPathArrows();
-
-        for (let i = 0; i < currentRoute.length - 1; i++) {
-          const fromNodeId = currentRoute[i];
-          const toNodeId = currentRoute[i + 1];
-
-          const path = CAMPUS_PATHS.find(
-            (p) =>
-              (p.from === fromNodeId && p.to === toNodeId) ||
-              (p.to === fromNodeId && p.from === toNodeId)
-          );
-
-          if (!path) continue;
-
-          const fromNode = CAMPUS_NODES[fromNodeId];
-          const toNode = CAMPUS_NODES[toNodeId];
-
-          if (!fromNode || !toNode) continue;
-
-          const points = [
-            { lat: fromNode.lat, lng: fromNode.lng },
-            ...(path.waypoints || []),
-            { lat: toNode.lat, lng: toNode.lng },
-          ];
-
-          for (let j = 0; j < points.length - 1; j++) {
-            const start = points[j];
-            const end = points[j + 1];
-
-            const bearing = calculateBearing(
-              start.lat,
-              start.lng,
-              end.lat,
-              end.lng
-            );
-            const distance = calculateDistance(
-              start.lat,
-              start.lng,
-              end.lat,
-              end.lng
-            );
-
-            // 🔺 Arrow at node: vertical and pointing toward next node
-            createArrowAtPosition(
-              start.lat,
-              start.lng,
-              bearing,
-              path,
-              1.0,
-              1.5,
-              true
-            );
-
-            // 🔻 Intermediate arrows: flat along the path
-            if (distance > 30) {
-              const numArrows = Math.min(Math.floor(distance / 20), 3);
-              for (let k = 1; k <= numArrows; k++) {
-                const progress = k / (numArrows + 1);
-                const interLat = start.lat + (end.lat - start.lat) * progress;
-                const interLng = start.lng + (end.lng - start.lng) * progress;
-
-                createArrowAtPosition(
-                  interLat,
-                  interLng,
-                  bearing,
-                  path,
-                  0.6,
-                  1.0,
-                  false
-                );
-              }
-            }
+    function createPathArrows() {
+      clearPathArrows();
+      
+      if (!currentRoute.length) return;
+      
+      // Create arrows for each segment of the route
+      for (let i = 0; i < currentRoute.length - 1; i++) {
+        const fromNodeId = currentRoute[i];
+        const toNodeId = currentRoute[i + 1];
+        
+        const fromNode = CAMPUS_NODES[fromNodeId];
+        const toNode = CAMPUS_NODES[toNodeId];
+        
+        if (!fromNode || !toNode) continue;
+        
+        // Calculate bearing to next node
+        const bearing = calculateBearing(
+          fromNode.lat, 
+          fromNode.lng, 
+          toNode.lat, 
+          toNode.lng
+        );
+        
+        // Create arrow at node pointing to next node
+        createDynamicArrow(fromNode.lat, fromNode.lng, bearing, 1.5, true);
+        
+        // Create intermediate arrows along the path
+        const distance = calculateDistance(
+          fromNode.lat, 
+          fromNode.lng, 
+          toNode.lat, 
+          toNode.lng
+        );
+        
+        if (distance > 20) {
+          const numArrows = Math.min(Math.floor(distance / 20), 3);
+          for (let j = 1; j <= numArrows; j++) {
+            const progress = j / (numArrows + 1);
+            const interLat = fromNode.lat + (toNode.lat - fromNode.lat) * progress;
+            const interLng = fromNode.lng + (toNode.lng - fromNode.lng) * progress;
+            
+            // Arrow points to the next node
+            createDynamicArrow(interLat, interLng, bearing, 1.0, false);
           }
         }
       }
-
-      function clearPathArrows() {
-        pathArrows.forEach((arrow) => {
-          if (arrow.parentNode === elements.scene) {
-            elements.scene.removeChild(arrow);
-          }
-        });
-        pathArrows = [];
+      
+      // Create arrow at the destination
+      const destinationId = currentRoute[currentRoute.length - 1];
+      const destinationNode = CAMPUS_NODES[destinationId];
+      if (destinationNode) {
+        createDynamicArrow(
+          destinationNode.lat, 
+          destinationNode.lng, 
+          0,  // Facing north at destination
+          1.5, 
+          true
+        );
       }
+    }
+
+    function clearPathArrows() {
+      pathArrows.forEach(arrow => {
+        if (arrow.parentNode === elements.scene) {
+          elements.scene.removeChild(arrow);
+        }
+      });
+      pathArrows = [];
+    }
 
       function initLeafletMap() {
         // Initialize the Leaflet map if it hasn't been created yet

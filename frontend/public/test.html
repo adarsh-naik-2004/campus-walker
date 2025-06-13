@@ -1,31 +1,496 @@
 <!DOCTYPE html>
-<html>
-  <head>
-    <title>AR Test in Laptop Browser</title>
-    <script src="https://aframe.io/releases/1.6.0/aframe.min.js"></script>
-    <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
-    <style>
-      body, html { margin: 0; overflow: hidden; height: 100%; }
-    </style>
-  </head>
-  <body>
-    <a-scene
-      embedded
-      arjs="sourceType: webcam; debugUIEnabled: true;"
-      vr-mode-ui="enabled: false"
-      renderer="logarithmicDepthBuffer: true; antialias: true;"
-    >
-      <!-- Fake GPS camera (doesn't actually require location on laptop) -->
-      <a-camera gps-camera rotation-reader></a-camera>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Dynamic AR Navigation</title>
+  <script src="https://aframe.io/releases/1.6.0/aframe.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/AR-js-org/AR.js/aframe/build/aframe-ar.js"></script>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <style>
+    /* Existing CSS remains unchanged */
+    /* Added arrow styling */
+    .ar-arrow {
+      position: absolute;
+      transform-origin: center bottom;
+      animation: pulseArrow 1.5s infinite alternate;
+    }
+    
+    .arrow-head {
+      width: 0;
+      height: 0;
+      border-left: 15px solid transparent;
+      border-right: 15px solid transparent;
+      border-bottom: 30px solid #4CAF50;
+      position: relative;
+      transform-style: preserve-3d;
+    }
+    
+    .arrow-shaft {
+      width: 8px;
+      height: 50px;
+      background: #4CAF50;
+      position: absolute;
+      top: 30px;
+      left: 50%;
+      transform: translateX(-50%);
+    }
+    
+    .direction-text {
+      position: absolute;
+      top: -1.5rem;
+      left: -0.5rem;
+      color: white;
+      font-size: 0.8rem;
+      background: rgba(0, 0, 0, 0.6);
+      padding: 0.1rem 0.3rem;
+      border-radius: 0.2rem;
+      white-space: nowrap;
+    }
+    
+    @keyframes pulseArrow {
+      0% { opacity: 0.7; transform: scale(1); }
+      100% { opacity: 1; transform: scale(1.1); }
+    }
+  </style>
+</head>
+<body>
+  <div class="arjs-loader">
+    <h1>🧭</h1>
+    <h1>Dynamic AR Navigation</h1>
+    <div class="spinner"></div>
+    <div id="loading-status">Initializing dynamic navigation system...</div>
+    <div id="permission-status">Requesting location permissions...</div>
+  </div>
 
-      <!-- A test marker with fake GPS coordinates -->
-      <a-entity 
-        gps-entity-place="latitude: 21.289114; longitude: 81.700327"
-        position="0 0 0"
-        visible="true"
-      >
-        <a-box color="blue" depth="1" height="1" width="1" position="0 0.5 0"></a-box>
-      </a-entity>
-    </a-scene>
-  </body>
+  <!-- AR Scene -->
+  <a-scene
+    id="scene"
+    vr-mode-ui="enabled: false"
+    arjs="sourceType: webcam; debugUIEnabled: true; 
+      detectionMode: mono; matrixCodeType: 3x3; 
+      trackingMethod: best; sourceWidth: 1280; 
+      sourceHeight: 720; displayWidth: 1280; 
+      videoTexture: true;
+      displayHeight: 720;"
+    renderer="logarithmicDepthBuffer: true; precision: medium; antialias: true;"
+    camera="fov: 60;"
+  >
+    <a-camera
+      gps-camera="gpsMinDistance: 1; gpsTimeInterval: 500;"
+      rotation-reader
+    ></a-camera>
+  </a-scene>
+
+  <div id="ui-overlay">
+    <!-- UI elements remain unchanged -->
+  </div>
+
+  <script>
+    // Campus data - simplified for this demo
+    const CAMPUS_NODES = {
+      node1: { lat: 21.28912, lng: 81.700358, name: "Main Entrance" },
+      node2: { lat: 21.28935, lng: 81.700621, name: "Science Building" },
+      node3: { lat: 21.28972, lng: 81.700442, name: "Library" },
+      node4: { lat: 21.28989, lng: 81.700891, name: "Cafeteria" },
+      node5: { lat: 21.29012, lng: 81.700722, name: "Gym" }
+    };
+
+    const CAMPUS_PATHS = [
+      { from: "node1", to: "node2", distance: 35 },
+      { from: "node2", to: "node3", distance: 45 },
+      { from: "node2", to: "node4", distance: 55 },
+      { from: "node3", to: "node5", distance: 40 },
+      { from: "node4", to: "node5", distance: 30 }
+    ];
+
+    const DESTINATIONS = {
+      library: { node: "node3", name: "Library", icon: "📚" },
+      cafeteria: { node: "node4", name: "Cafeteria", icon: "🍔" },
+      gym: { node: "node5", name: "Gym", icon: "🏋️‍♂️" }
+    };
+
+    // User position and state
+    let userPosition = { lat: 21.28912, lng: 81.700358, accuracy: 5, heading: 0 };
+    let userHeading = 0;
+    let selectedDestination = null;
+    let isNavigating = false;
+    let currentRoute = [];
+    let pathArrows = [];
+    let announcedNodes = new Set();
+    let lastAnnouncedNode = null;
+    let lastAnnouncementTime = 0;
+    
+    const elements = {
+      // Element references remain unchanged
+    };
+
+    // New: Dynamic arrow creation functions
+    function createDynamicArrow(lat, lng, bearing, height = 1.5, isNode = false) {
+      const arrow = document.createElement("a-entity");
+      arrow.classList.add("ar-arrow");
+      arrow.setAttribute("gps-entity-place", {
+        latitude: lat,
+        longitude: lng,
+        altitude: height
+      });
+      
+      // Create arrow with dynamic orientation
+      const arrowContainer = document.createElement("a-entity");
+      arrowContainer.setAttribute("rotation", `0 ${bearing} 0`);
+      
+      const arrowHead = document.createElement("a-entity");
+      arrowHead.classList.add("arrow-head");
+      arrowHead.setAttribute("geometry", "primitive: cone; radiusBottom: 0.5; radiusTop: 0; height: 1");
+      arrowHead.setAttribute("material", "color: #4CAF50; metalness: 0.5; roughness: 0.3");
+      arrowHead.setAttribute("position", "0 0.75 0");
+      
+      const arrowShaft = document.createElement("a-entity");
+      arrowShaft.classList.add("arrow-shaft");
+      arrowShaft.setAttribute("geometry", "primitive: cylinder; radius: 0.1; height: 1.5");
+      arrowShaft.setAttribute("material", "color: #4CAF50");
+      arrowShaft.setAttribute("position", "0 0 0");
+      
+      arrowContainer.appendChild(arrowHead);
+      arrowContainer.appendChild(arrowShaft);
+      arrow.appendChild(arrowContainer);
+      
+      // Add pulsing animation
+      arrow.setAttribute("animation", {
+        property: "scale",
+        dir: "alternate",
+        dur: 1000,
+        loop: true,
+        from: "1 1 1",
+        to: "1.1 1.1 1.1"
+      });
+      
+      elements.scene.appendChild(arrow);
+      pathArrows.push(arrow);
+      return arrow;
+    }
+
+    function createPathArrows() {
+      clearPathArrows();
+      
+      if (!currentRoute.length) return;
+      
+      // Create arrows for each segment of the route
+      for (let i = 0; i < currentRoute.length - 1; i++) {
+        const fromNodeId = currentRoute[i];
+        const toNodeId = currentRoute[i + 1];
+        
+        const fromNode = CAMPUS_NODES[fromNodeId];
+        const toNode = CAMPUS_NODES[toNodeId];
+        
+        if (!fromNode || !toNode) continue;
+        
+        // Calculate bearing to next node
+        const bearing = calculateBearing(
+          fromNode.lat, 
+          fromNode.lng, 
+          toNode.lat, 
+          toNode.lng
+        );
+        
+        // Create arrow at node pointing to next node
+        createDynamicArrow(fromNode.lat, fromNode.lng, bearing, 1.5, true);
+        
+        // Create intermediate arrows along the path
+        const distance = calculateDistance(
+          fromNode.lat, 
+          fromNode.lng, 
+          toNode.lat, 
+          toNode.lng
+        );
+        
+        if (distance > 30) {
+          const numArrows = Math.min(Math.floor(distance / 20), 3);
+          for (let j = 1; j <= numArrows; j++) {
+            const progress = j / (numArrows + 1);
+            const interLat = fromNode.lat + (toNode.lat - fromNode.lat) * progress;
+            const interLng = fromNode.lng + (toNode.lng - fromNode.lng) * progress;
+            
+            // Arrow points to the next node
+            createDynamicArrow(interLat, interLng, bearing, 1.0, false);
+          }
+        }
+      }
+      
+      // Create arrow at the destination
+      const destinationId = currentRoute[currentRoute.length - 1];
+      const destinationNode = CAMPUS_NODES[destinationId];
+      if (destinationNode) {
+        createDynamicArrow(
+          destinationNode.lat, 
+          destinationNode.lng, 
+          0,  // Facing north at destination
+          1.5, 
+          true
+        );
+      }
+    }
+
+    function clearPathArrows() {
+      pathArrows.forEach(arrow => {
+        if (arrow.parentNode === elements.scene) {
+          elements.scene.removeChild(arrow);
+        }
+      });
+      pathArrows = [];
+    }
+
+    // Calculate bearing between two points
+    function calculateBearing(lat1, lng1, lat2, lng2) {
+      const R = 6371; // Earth radius in km
+      const dLng = (lng2 - lng1) * Math.PI / 180;
+      const lat1Rad = lat1 * Math.PI / 180;
+      const lat2Rad = lat2 * Math.PI / 180;
+      
+      const y = Math.sin(dLng) * Math.cos(lat2Rad);
+      const x = Math.cos(lat1Rad) * Math.sin(lat2Rad) - 
+                Math.sin(lat1Rad) * Math.cos(lat2Rad) * Math.cos(dLng);
+      
+      const bearing = Math.atan2(y, x);
+      return (bearing * 180 / Math.PI + 360) % 360;
+    }
+
+    // Calculate distance between two points
+    function calculateDistance(lat1, lng1, lat2, lng2) {
+      const R = 6371000; // Earth radius in meters
+      const dLat = (lat2 - lat1) * Math.PI / 180;
+      const dLng = (lng2 - lng1) * Math.PI / 180;
+      const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
+                Math.sin(dLng/2) * Math.sin(dLng/2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      return R * c;
+    }
+
+    // Find nearest node to current position
+    function findNearestNode(lat, lng) {
+      let minDistance = Infinity;
+      let nearestNode = null;
+      
+      for (const [id, node] of Object.entries(CAMPUS_NODES)) {
+        const distance = calculateDistance(lat, lng, node.lat, node.lng);
+        if (distance < minDistance) {
+          minDistance = distance;
+          nearestNode = { id, ...node };
+        }
+      }
+      
+      return nearestNode;
+    }
+
+    // Find shortest path using Dijkstra's algorithm
+    function findShortestPath(startNodeId, endNodeId) {
+      const graph = {};
+      
+      // Initialize graph
+      for (const nodeId in CAMPUS_NODES) {
+        graph[nodeId] = [];
+      }
+      
+      // Add paths to graph
+      for (const path of CAMPUS_PATHS) {
+        graph[path.from].push({ node: path.to, distance: path.distance });
+        graph[path.to].push({ node: path.from, distance: path.distance });
+      }
+      
+      // Dijkstra's algorithm implementation
+      const distances = {};
+      const previous = {};
+      const queue = [];
+      
+      for (const nodeId in graph) {
+        if (nodeId === startNodeId) {
+          distances[nodeId] = 0;
+        } else {
+          distances[nodeId] = Infinity;
+        }
+        previous[nodeId] = null;
+        queue.push(nodeId);
+      }
+      
+      while (queue.length > 0) {
+        let minNode = null;
+        for (const nodeId of queue) {
+          if (minNode === null || distances[nodeId] < distances[minNode]) {
+            minNode = nodeId;
+          }
+        }
+        
+        queue.splice(queue.indexOf(minNode), 1);
+        
+        if (minNode === endNodeId) {
+          break;
+        }
+        
+        for (const neighbor of graph[minNode]) {
+          const alt = distances[minNode] + neighbor.distance;
+          if (alt < distances[neighbor.node]) {
+            distances[neighbor.node] = alt;
+            previous[neighbor.node] = minNode;
+          }
+        }
+      }
+      
+      // Reconstruct path
+      const path = [];
+      let current = endNodeId;
+      while (current !== null) {
+        path.unshift(current);
+        current = previous[current];
+      }
+      
+      return path;
+    }
+
+    // Calculate route based on current position and destination
+    function calculateRoute() {
+      if (!userPosition || !selectedDestination) return [];
+      
+      const startNode = findNearestNode(userPosition.lat, userPosition.lng);
+      const endNodeId = DESTINATIONS[selectedDestination].node;
+      
+      return findShortestPath(startNode.id, endNodeId);
+    }
+
+    // Initialize navigation
+    function startNavigation() {
+      if (!selectedDestination) return;
+      
+      isNavigating = true;
+      currentRoute = calculateRoute();
+      createPathArrows();
+      
+      // Update UI
+      elements.navigateBtn.classList.add("hidden");
+      elements.stopBtn.classList.remove("hidden");
+      elements.distanceDisplay.textContent = `Navigating to ${DESTINATIONS[selectedDestination].name}`;
+      
+      // Start navigation updates
+      updateNavigation();
+    }
+    
+    function updateNavigation() {
+      if (!isNavigating) return;
+      
+      // Check if we've reached the destination
+      const destination = DESTINATIONS[selectedDestination];
+      const destNode = CAMPUS_NODES[destination.node];
+      
+      const distance = calculateDistance(
+        userPosition.lat, 
+        userPosition.lng, 
+        destNode.lat, 
+        destNode.lng
+      );
+      
+      if (distance < 10) {
+        elements.distanceDisplay.textContent = "🎯 Arrived at destination!";
+        setTimeout(() => stopNavigation(), 3000);
+        return;
+      }
+      
+      // Find the next node in the route
+      const nextNodeId = currentRoute[1];
+      const nextNode = CAMPUS_NODES[nextNodeId];
+      
+      if (!nextNode) return;
+      
+      const bearing = calculateBearing(
+        userPosition.lat, 
+        userPosition.lng, 
+        nextNode.lat, 
+        nextNode.lng
+      );
+      
+      // Update direction display
+      const direction = bearingToDirection(bearing, userPosition.heading);
+      elements.directionDisplay.textContent = direction;
+      elements.distanceDisplay.textContent = `${Math.round(distance)}m to ${destination.name}`;
+      
+      // Check if we need to recalculate the route
+      const nearestNode = findNearestNode(userPosition.lat, userPosition.lng);
+      if (nearestNode.id !== currentRoute[0]) {
+        currentRoute = calculateRoute();
+        createPathArrows();
+      }
+      
+      // Update every 3 seconds
+      setTimeout(updateNavigation, 3000);
+    }
+    
+    function bearingToDirection(bearing, userHeading) {
+      const diff = (bearing - userHeading + 360) % 360;
+      
+      if (diff <= 22.5 || diff > 337.5) return "➡️ Straight ahead";
+      if (diff > 22.5 && diff <= 67.5) return "↗️ Slight right";
+      if (diff > 67.5 && diff <= 112.5) return "➡️ Turn right";
+      if (diff > 112.5 && diff <= 157.5) return "↘️ Sharp right";
+      if (diff > 157.5 && diff <= 202.5) return "↩️ Turn around";
+      if (diff > 202.5 && diff <= 247.5) return "↙️ Sharp left";
+      if (diff > 247.5 && diff <= 292.5) return "⬅️ Turn left";
+      if (diff > 292.5 && diff <= 337.5) return "↖️ Slight left";
+      
+      return "Continue forward";
+    }
+    
+    function stopNavigation() {
+      isNavigating = false;
+      clearPathArrows();
+      
+      // Update UI
+      elements.navigateBtn.classList.remove("hidden");
+      elements.stopBtn.classList.add("hidden");
+      elements.distanceDisplay.textContent = "Navigation stopped";
+      elements.directionDisplay.textContent = "";
+    }
+
+    // Initialize the application
+    function initialize() {
+      // Setup event listeners
+      elements.destinationSelect.addEventListener("change", (e) => {
+        selectedDestination = e.target.value;
+        elements.navigateBtn.disabled = !selectedDestination;
+      });
+      
+      elements.navigateBtn.addEventListener("click", startNavigation);
+      elements.stopBtn.addEventListener("click", stopNavigation);
+      
+      // Simulate GPS updates
+      setInterval(() => {
+        if (isNavigating) {
+          // Move user position slightly
+          userPosition.lat += 0.00005;
+          userPosition.lng += 0.00005;
+          
+          // Update heading
+          userHeading = (userHeading + 2) % 360;
+          userPosition.heading = userHeading;
+          
+          // Update compass
+          elements.compassNeedle.style.transform = `rotate(${userHeading}deg)`;
+        }
+      }, 1000);
+      
+      // Hide loader after initialization
+      setTimeout(() => {
+        elements.loader.style.opacity = "0";
+        setTimeout(() => {
+          elements.loader.classList.add("hidden");
+          elements.statusPanel.classList.remove("hidden");
+          elements.controlsPanel.classList.remove("hidden");
+          elements.compass.classList.remove("hidden");
+        }, 500);
+      }, 2000);
+    }
+
+    // Start the application
+    document.addEventListener("DOMContentLoaded", initialize);
+  </script>
+</body>
 </html>
