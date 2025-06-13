@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
 import { toast } from "react-hot-toast";
 import api from "../../utils/api";
-import { QRCode } from "qrcode.react";
+import QRCode from "react-qr-code";
+import { toPng } from "html-to-image";
 
 export default function IndoorManagement({ instituteId }) {
   const [activeTab, setActiveTab] = useState("locations");
@@ -125,19 +126,18 @@ export default function IndoorManagement({ instituteId }) {
   };
 
   const downloadQRCode = () => {
-    if (!qrRef.current) return;
+  if (!qrRef.current) return;
 
-    const canvas = qrRef.current.querySelector("canvas");
-    if (!canvas) return;
+  toPng(qrRef.current)
+    .then((dataUrl) => {
+      const link = document.createElement("a");
+      link.download = `qr-${currentQRNode.nodeId}.png`;
+      link.href = dataUrl;
+      link.click();
+    })
+    .catch(() => toast.error("QR download failed"));
+};
 
-    const image = canvas.toDataURL("image/png");
-    const link = document.createElement("a");
-    link.href = image;
-    link.download = `qr-${currentQRNode.nodeId}.png`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
 
   const generateQRForLocation = (location) => {
     setCurrentQRNode(location);
@@ -152,13 +152,13 @@ export default function IndoorManagement({ instituteId }) {
             <h3 className="text-lg font-bold mb-4">
               QR Code for {currentQRNode.name}
             </h3>
-            <div ref={qrRef} className="flex justify-center mb-4">
+            <div
+              ref={qrRef}
+              className="flex justify-center mb-4 bg-white p-2 rounded"
+            >
               <QRCode
                 value={`${currentQRNode.building}-${currentQRNode.nodeId}`}
                 size={256}
-                level="H"
-                includeMargin={true}
-                fgColor="#1e40af"
               />
             </div>
             <p className="text-center mb-2 text-sm text-gray-600">
