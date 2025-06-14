@@ -18,6 +18,22 @@ export const getInstituteById = async (req, res) => {
   }
 };
 
+export const getBuildings = async (req, res) => {
+  try {
+    const locations = await Location.find({
+      institute: req.params.id,
+      category: 'building'
+    });
+    
+    const buildingNames = locations.map(loc => loc.name);
+    res.json(buildingNames);
+  } catch (err) {
+    console.error("Error fetching buildings:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+
 export const addLocation = async (req, res) => {
   try {
     const { name, description, floor, category, instituteId, coordinates } =

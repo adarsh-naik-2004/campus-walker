@@ -11,8 +11,42 @@ export default function IndoorManagement({ instituteId }) {
   const [paths, setPaths] = useState([]);
   const [loading, setLoading] = useState(false);
   const [showQRModal, setShowQRModal] = useState(false);
+  const [showNewBuildingInput, setShowNewBuildingInput] = useState(false);
   const [currentQRNode, setCurrentQRNode] = useState(null);
+  const [buildings, setBuildings] = useState([]);
   const qrRef = useRef(null);
+
+  useEffect(() => {
+    const fetchBuildings = async () => {
+      try {
+        const { data } = await api.get(`/institute/${instituteId}/locations`);
+        // Filter locations with 'building' category
+        const buildingLocations = data.filter(
+          (loc) => loc.category === "building"
+        );
+        // Extract building names
+        const buildingNames = buildingLocations.map((loc) => loc.name);
+        setBuildings(buildingNames);
+      } catch (err) {
+        toast.error("Failed to load buildings");
+      }
+    };
+
+    fetchBuildings();
+  }, [instituteId]);
+
+  const hardCodedBuildings = [
+    "Academic Building",
+    "Science Block",
+    "Engineering Wing",
+    "Administration Building",
+    "Library",
+    "Sports Complex",
+    "Canteen",
+    "Auditorium",
+    "Student Center",
+    "Medical Center",
+  ];
 
   const [formData, setFormData] = useState({
     name: "",
@@ -36,6 +70,16 @@ export default function IndoorManagement({ instituteId }) {
   useEffect(() => {
     loadData();
   }, [activeTab]);
+
+  useEffect(() => {
+    const locationBuildings = [
+      ...new Set(locations.map((loc) => loc.building)),
+    ];
+    const allBuildings = [
+      ...new Set([...hardCodedBuildings, ...locationBuildings]),
+    ].filter((b) => b); // Remove any empty values
+    setBuildings(allBuildings);
+  }, [locations]);
 
   const loadData = async () => {
     setLoading(true);
@@ -75,17 +119,40 @@ export default function IndoorManagement({ instituteId }) {
     setLoading(false);
   };
 
+  const handleBuildingChange = (e) => {
+    const value = e.target.value;
+    if (value === "other") {
+      setShowNewBuildingInput(true);
+      setFormData({ ...formData, building: "" });
+    } else {
+      setShowNewBuildingInput(false);
+      setFormData({ ...formData, building: value });
+    }
+  };
+
   const handleAddLocation = async () => {
+    if (!formData.building) {
+      toast.error("Building name is required");
+      return;
+    }
+
     try {
-      const { data } = await api.post("/indoor/locations", {
-        ...formData,
-        instituteId,
-        headers: {
-          "x-auth-token": localStorage.getItem("token"),
-          "Content-Type": "multipart/form-data",
-        },
-      });
+      const { data } = await api.post(
+        "/indoor/locations",
+        { ...formData, instituteId },
+        {
+          headers: {
+            "x-auth-token": localStorage.getItem("token"),
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
       setLocations([...locations, data]);
+
+      if (!buildings.includes(formData.building)) {
+        setBuildings([...buildings, formData.building]);
+      }
       setFormData({
         name: "",
         nodeId: "",
@@ -95,6 +162,7 @@ export default function IndoorManagement({ instituteId }) {
         y: 0,
         category: "room",
       });
+      setShowNewBuildingInput(false);
       toast.success("Location added!");
     } catch (err) {
       toast.error("Failed to add location");
@@ -103,14 +171,16 @@ export default function IndoorManagement({ instituteId }) {
 
   const handleAddPath = async () => {
     try {
-      const { data } = await api.post("/indoor/paths", {
-        ...pathData,
-        instituteId,
-        headers: {
-          "x-auth-token": localStorage.getItem("token"),
-          "Content-Type": "multipart/form-data",
-        },
-      });
+      const { data } = await api.post(
+        "/indoor/paths",
+        { ...pathData, instituteId },
+        {
+          headers: {
+            "x-auth-token": localStorage.getItem("token"),
+            "Content-Type": "application/json",
+          },
+        }
+      );
       setPaths([...paths, data]);
       setPathData({
         from: "",
@@ -129,11 +199,11 @@ export default function IndoorManagement({ instituteId }) {
   const handleDeleteLocation = async (id) => {
     if (window.confirm("Delete this location?")) {
       try {
-        await api.delete(`/indoor/locations/${id}`, { 
-          headers: { 
-            'x-auth-token': localStorage.getItem('token'),
-            'Content-Type': 'multipart/form-data'
-          } 
+        await api.delete(`/indoor/locations/${id}`, {
+          headers: {
+            "x-auth-token": localStorage.getItem("token"),
+            "Content-Type": "multipart/form-data",
+          },
         });
         setLocations(locations.filter((l) => l._id !== id));
         toast.success("Location deleted");
@@ -146,11 +216,11 @@ export default function IndoorManagement({ instituteId }) {
   const handleDeletePath = async (id) => {
     if (window.confirm("Delete this path?")) {
       try {
-        await api.delete(`/indoor/paths/${id}`, { 
-          headers: { 
-            'x-auth-token': localStorage.getItem('token'),
-            'Content-Type': 'multipart/form-data'
-          } 
+        await api.delete(`/indoor/paths/${id}`, {
+          headers: {
+            "x-auth-token": localStorage.getItem("token"),
+            "Content-Type": "multipart/form-data",
+          },
         });
         setPaths(paths.filter((p) => p._id !== id));
         toast.success("Path deleted");
@@ -266,14 +336,20 @@ export default function IndoorManagement({ instituteId }) {
             </div>
             <div>
               <label className="block text-sm font-medium mb-1">Building</label>
-              <input
-                type="text"
+              <select
                 className="w-full p-2 border rounded"
                 value={formData.building}
                 onChange={(e) =>
                   setFormData({ ...formData, building: e.target.value })
                 }
-              />
+              >
+                <option value="">Select a building</option>
+                {buildings.map((building, index) => (
+                  <option key={index} value={building}>
+                    {building}
+                  </option>
+                ))}
+              </select>
             </div>
             <div>
               <label className="block text-sm font-medium mb-1">Floor</label>
@@ -410,7 +486,7 @@ export default function IndoorManagement({ instituteId }) {
               >
                 <option value="">Select end point</option>
                 {locations.map((loc) => (
-                  <option value={loc.nodeId}>
+                  <option key={loc._id} value={loc._id}>
                     {loc.name} ({loc.building}-{loc.floor})
                   </option>
                 ))}

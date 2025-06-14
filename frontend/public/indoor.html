@@ -1,83 +1,454 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
   <head>
-    <meta charset="utf-8" />
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Indoor AR Navigation</title>
     <script src="https://aframe.io/releases/1.2.0/aframe.min.js"></script>
     <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
     <style>
-      body {
+      * {
         margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+      }
+
+      body {
+        background: #1a1a2e;
+        color: #fff;
         overflow: hidden;
+        height: 100vh;
       }
-      #mapContainer {
-        position: fixed;
-        bottom: 20px;
-        right: 20px;
-        width: 300px;
-        height: 300px;
-        background: white;
-        border: 2px solid #333;
-        border-radius: 10px;
-        z-index: 100;
-        display: none;
-      }
-      #infoPanel {
-        position: fixed;
+
+      .back-button {
+        position: absolute;
         top: 20px;
         left: 20px;
-        background: rgba(255, 255, 255, 0.9);
-        padding: 15px;
-        border-radius: 10px;
         z-index: 100;
-        max-width: 300px;
-        display: none;
-      }
-      #destinations {
-        max-height: 200px;
-        overflow-y: auto;
-      }
-      .dest-item {
-        padding: 8px;
-        border-bottom: 1px solid #eee;
+        background: rgba(0, 0, 0, 0.7);
+        border: none;
+        border-radius: 50%;
+        width: 50px;
+        height: 50px;
+        font-size: 24px;
+        color: white;
         cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        backdrop-filter: blur(5px);
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+        transition: all 0.3s;
       }
-      .dest-item:hover {
-        background: #f0f0f0;
+
+      .back-button:hover {
+        background: rgba(40, 40, 80, 0.9);
+        transform: scale(1.1);
+      }
+
+      #ar-scene {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        z-index: 10;
+      }
+
+      #ui-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 20;
+        pointer-events: none;
+      }
+
+      #info-panel {
+        position: absolute;
+        top: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: rgba(0, 0, 0, 0.7);
+        padding: 15px 20px;
+        border-radius: 15px;
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        text-align: center;
+        max-width: 90%;
+        pointer-events: auto;
+      }
+
+      #nav-info {
+        margin-top: 10px;
+        font-size: 18px;
+        color: #4caf50;
+        font-weight: bold;
+      }
+
+      #controls {
+        position: absolute;
+        bottom: 30px;
+        left: 50%;
+        transform: translateX(-50%);
+        display: flex;
+        gap: 15px;
+        pointer-events: auto;
+      }
+
+      .control-btn {
+        background: linear-gradient(135deg, #4caf50, #45a049);
+        color: white;
+        border: none;
+        border-radius: 50px;
+        padding: 12px 25px;
+        font-size: 16px;
+        font-weight: bold;
+        cursor: pointer;
+        transition: all 0.3s;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+        backdrop-filter: blur(5px);
+      }
+
+      .control-btn:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+      }
+
+      #scan-btn {
+        background: linear-gradient(135deg, #2196f3, #0b7dda);
+      }
+
+      #qr-scan-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.9);
+        z-index: 1000;
+        display: none;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+      }
+
+      #qr-scan-frame {
+        width: 80%;
+        max-width: 400px;
+        aspect-ratio: 1;
+        border: 4px solid #4caf50;
+        border-radius: 10px;
+        position: relative;
+        overflow: hidden;
+        box-shadow: 0 0 30px rgba(76, 175, 80, 0.5);
+      }
+
+      #qr-scan-video {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }
+
+      #qr-scan-instructions {
+        color: white;
+        margin-top: 25px;
+        font-size: 18px;
+        text-align: center;
+        max-width: 90%;
+      }
+
+      #cancel-scan {
+        margin-top: 25px;
+        background: #f44336;
+        color: white;
+        border: none;
+        border-radius: 50px;
+        padding: 12px 30px;
+        font-size: 16px;
+        font-weight: bold;
+        cursor: pointer;
+        transition: all 0.3s;
+      }
+
+      #cancel-scan:hover {
+        background: #d32f2f;
+        transform: scale(1.05);
+      }
+
+      #map-container {
+        position: absolute;
+        bottom: 100px;
+        right: 20px;
+        width: 250px;
+        height: 250px;
+        background: rgba(255, 255, 255, 0.9);
+        border-radius: 15px;
+        overflow: hidden;
+        box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4);
+        display: none;
+        z-index: 15;
+        border: 2px solid rgba(0, 0, 0, 0.1);
+      }
+
+      #map-canvas {
+        width: 100%;
+        height: 100%;
+      }
+
+      #destinations-panel {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: rgba(0, 0, 0, 0.85);
+        backdrop-filter: blur(10px);
+        border-radius: 15px;
+        padding: 20px;
+        width: 90%;
+        max-width: 500px;
+        max-height: 80vh;
+        overflow-y: auto;
+        display: none;
+        z-index: 30;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        box-shadow: 0 15px 35px rgba(0, 0, 0, 0.5);
+        pointer-events: auto;
+      }
+
+      #destinations-panel h3 {
+        text-align: center;
+        margin-bottom: 20px;
+        color: #4caf50;
+        font-size: 24px;
+      }
+
+      #destinations-list {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+        gap: 15px;
+      }
+
+      .destination-item {
+        background: rgba(40, 40, 80, 0.7);
+        border-radius: 10px;
+        padding: 15px;
+        text-align: center;
+        cursor: pointer;
+        transition: all 0.3s;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+      }
+
+      .destination-item:hover {
+        background: rgba(76, 175, 80, 0.3);
+        transform: translateY(-5px);
+      }
+
+      .destination-name {
+        font-size: 14px;
+        margin-top: 8px;
+      }
+
+      .qr-icon {
+        font-size: 32px;
+        margin-bottom: 5px;
+      }
+
+      .status-indicator {
+        position: absolute;
+        top: 20px;
+        right: 20px;
+        background: rgba(0, 0, 0, 0.7);
+        padding: 8px 15px;
+        border-radius: 20px;
+        font-size: 14px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        backdrop-filter: blur(5px);
+        z-index: 25;
+      }
+
+      .status-dot {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        background: #ff5722;
+      }
+
+      .status-good {
+        background: #4caf50;
+      }
+
+      .status-error {
+        background: #f44336;
+      }
+
+      .loading-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(135deg, #1a2a6c, #b21f1f, #1a2a6c);
+        z-index: 1000;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        color: white;
+      }
+
+      .spinner {
+        width: 50px;
+        height: 50px;
+        border: 5px solid rgba(255, 255, 255, 0.3);
+        border-top: 5px solid white;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+        margin: 20px 0;
+      }
+
+      @keyframes spin {
+        0% {
+          transform: rotate(0deg);
+        }
+        100% {
+          transform: rotate(360deg);
+        }
+      }
+
+      h1 {
+        text-align: center;
+        font-size: 2.5rem;
+        margin-bottom: 1rem;
+        text-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+      }
+
+      .building-title {
+        position: absolute;
+        top: 80px;
+        left: 0;
+        right: 0;
+        text-align: center;
+        font-size: 24px;
+        color: #4caf50;
+        text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+        z-index: 15;
+      }
+
+      .floor-indicator {
+        position: absolute;
+        top: 120px;
+        left: 0;
+        right: 0;
+        text-align: center;
+        font-size: 18px;
+        color: #2196f3;
+        z-index: 15;
+      }
+
+      .error-message {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: rgba(244, 67, 54, 0.8);
+        padding: 20px;
+        border-radius: 10px;
+        text-align: center;
+        z-index: 40;
+        display: none;
+        max-width: 80%;
+      }
+
+      .back-button {
+        position: absolute;
+        top: 20px;
+        left: 20px;
+        z-index: 100;
+        background: rgba(0, 0, 0, 0.7);
+        border: none;
+        border-radius: 50%;
+        width: 50px;
+        height: 50px;
+        font-size: 24px;
+        color: white;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        backdrop-filter: blur(5px);
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+        transition: all 0.3s;
+      }
+
+      .back-button:hover {
+        background: rgba(40, 40, 80, 0.9);
+        transform: scale(1.1);
       }
     </style>
   </head>
   <body>
-    <a-scene embedded arjs="sourceType: webcam; debugUIEnabled: false;">
-      <!-- AR Camera -->
-      <a-camera gps-camera rotation-reader></a-camera>
-
-      <!-- AR Content will be added dynamically -->
-      <a-entity id="ar-content"></a-entity>
-
-      <!-- Marker-based AR -->
-      <a-marker id="marker" type="pattern" url="data/pattern-marker.patt">
-        <a-entity id="arrow-entity"></a-entity>
-      </a-marker>
-    </a-scene>
-
-    <!-- 2D Map Container -->
-    <div id="mapContainer">
-      <canvas id="mapCanvas" width="300" height="300"></canvas>
+    <button class="back-button" onclick="window.history.back()">←</button>
+    <div class="loading-overlay">
+      <h1>Campus AR Navigator</h1>
+      <div class="spinner"></div>
+      <div id="loading-status">Initializing indoor navigation...</div>
     </div>
 
-    <!-- Info Panel -->
-    <div id="infoPanel">
-      <h3>Navigation Controls</h3>
-      <div>
-        <button id="startNav">Start Navigation</button>
-        <button id="scanMarker">Scan Marker</button>
+    <div class="error-message" id="error-message"></div>
+
+    <button class="back-button" onclick="window.history.back()">←</button>
+
+    <div class="building-title" id="building-title"></div>
+    <div class="floor-indicator" id="floor-indicator"></div>
+
+    <a-scene
+      id="ar-scene"
+      embedded
+      arjs="sourceType: webcam; debugUIEnabled: false;"
+    >
+      <a-camera gps-camera rotation-reader></a-camera>
+      <a-entity id="ar-content"></a-entity>
+      <a-entity id="arrow-entity"></a-entity>
+    </a-scene>
+
+    <div id="ui-overlay">
+      <div id="info-panel">
+        <div id="nav-info">Scan a room QR code to start navigation</div>
       </div>
-      <div id="destinations" style="display: none">
-        <!-- Destinations will be populated here -->
+
+      <div class="status-indicator">
+        <div class="status-dot" id="status-dot"></div>
+        <span id="status-text">Ready</span>
       </div>
-      <div id="navInfo"></div>
+
+      <div id="map-container">
+        <canvas id="map-canvas" width="250" height="250"></canvas>
+      </div>
+
+      <div id="controls">
+        <button id="start-btn" class="control-btn">Start Navigation</button>
+        <button id="scan-btn" class="control-btn">Scan QR Code</button>
+      </div>
+    </div>
+
+    <div id="qr-scan-overlay">
+      <div id="qr-scan-frame">
+        <video id="qr-scan-video" playsinline></video>
+      </div>
+      <div id="qr-scan-instructions">Point your camera at a room QR code</div>
+      <button id="cancel-scan">Cancel Scan</button>
+    </div>
+
+    <div id="destinations-panel">
+      <h3>Select Destination</h3>
+      <div id="destinations-list"></div>
     </div>
 
     <script>
@@ -90,81 +461,134 @@
         graph: null,
         mapScale: 1,
         buildingData: {},
+        qrScanActive: false,
       };
 
       // DOM Elements
-      const mapContainer = document.getElementById("mapContainer");
-      const mapCanvas = document.getElementById("mapCanvas");
-      const infoPanel = document.getElementById("infoPanel");
-      const destinationsDiv = document.getElementById("destinations");
-      const navInfo = document.getElementById("navInfo");
-      const startNavBtn = document.getElementById("startNav");
-      const scanMarkerBtn = document.getElementById("scanMarker");
+      const loadingOverlay = document.querySelector(".loading-overlay");
+      const loadingStatus = document.getElementById("loading-status");
+      const errorMessage = document.getElementById("error-message");
+      const buildingTitle = document.getElementById("building-title");
+      const floorIndicator = document.getElementById("floor-indicator");
+      const navInfo = document.getElementById("nav-info");
+      const statusDot = document.getElementById("status-dot");
+      const statusText = document.getElementById("status-text");
+      const mapContainer = document.getElementById("map-container");
+      const mapCanvas = document.getElementById("map-canvas");
+      const startBtn = document.getElementById("start-btn");
+      const scanBtn = document.getElementById("scan-btn");
+      const qrScanOverlay = document.getElementById("qr-scan-overlay");
+      const qrScanVideo = document.getElementById("qr-scan-video");
+      const qrScanInstructions = document.getElementById(
+        "qr-scan-instructions"
+      );
+      const cancelScanBtn = document.getElementById("cancel-scan");
+      const destinationsPanel = document.getElementById("destinations-panel");
+      const destinationsList = document.getElementById("destinations-list");
       const arContent = document.getElementById("ar-content");
       const arrowEntity = document.getElementById("arrow-entity");
 
-      // Initialize
-      document
-        .querySelector("a-marker")
-        .addEventListener("markerFound", (e) => {
-          const markerId = e.target.id;
-          handleMarkerFound(markerId);
-        });
+      // QR Scanning variables
+      let videoStream = null;
+      const qrCanvas = document.createElement("canvas");
+      const qrCanvasCtx = qrCanvas.getContext("2d");
+      let scanningActive = false;
 
-      startNavBtn.addEventListener("click", showDestinations);
-      scanMarkerBtn.addEventListener("click", () => {
-        // In a real app, this would trigger QR scanning
-        alert("Point camera at a QR code marker");
-      });
+      // Get parameters from URL
+      const urlParams = new URLSearchParams(window.location.search);
+      const buildingName = urlParams.get("building");
+      const instituteId = urlParams.get("instituteId");
 
-      // Marker Handling
-      function handleMarkerFound(markerData) {
-        const [building, nodeId] = markerData.split("-");
+      // Initialize the app
+      async function initialize() {
+        try {
+          // Set building title immediately
+          if (buildingName) {
+            document.getElementById("building-title").textContent =
+              buildingName;
+          }
 
-        if (!state.currentBuilding) {
-          state.currentBuilding = building;
-          loadBuildingData(building);
+          if (!buildingName || !instituteId) {
+            throw new Error("Missing building or institute information!");
+          }
+
+          await loadBuildingData(buildingName, instituteId);
+
+          setupEventListeners();
+
+          loadingOverlay.style.display = "none";
+          updateStatus("Ready to scan QR codes", "good");
+        } catch (error) {
+          console.error("Initialization failed:", error);
+
+        
+          loadingStatus.textContent = `Error: ${error.message}`;
+
+          showError(`Initialization failed: ${error.message}`);
         }
-
-        state.currentNode = nodeId;
-        updateUI();
       }
 
-      // Load building data from backend
-      async function loadBuildingData(building) {
+      // Load building data from backend API
+      async function loadBuildingData(building, instituteId) {
         try {
+          loadingStatus.textContent = `Loading ${building} data...`;
+
           const response = await axios.get(
-            `https://ar-nav-system.onrender.com/api/indoor/building/${building}`
+            `https://ar-nav-system.onrender.com/api/indoor/building/${encodeURIComponent(
+              building
+            )}`
           );
+
           state.buildingData = response.data;
           state.graph = buildGraph(response.data);
-          drawMap();
+
+          // Set initial floor if available
+          if (state.buildingData.nodes.length > 0) {
+            document.getElementById(
+              "floor-indicator"
+            ).textContent = `Floor ${state.buildingData.nodes[0].floor}`;
+          }
+
+          // Show UI elements
           mapContainer.style.display = "block";
           infoPanel.style.display = "block";
         } catch (error) {
           console.error("Error loading building data:", error);
+          let message = "Failed to load building data";
+
+          if (error.response) {
+            if (error.response.status === 404) {
+              message = "Building not found in database";
+            } else if (error.response.data && error.response.data.message) {
+              message = error.response.data.message;
+            }
+          }
+
+          throw new Error(message);
         }
       }
-
       // Build graph for pathfinding
       function buildGraph(data) {
         const graph = {};
 
+        // Initialize graph with all nodes
         data.nodes.forEach((node) => {
           graph[node.id] = [];
         });
 
+        // Add edges to the graph
         data.edges.forEach((edge) => {
           // Add penalty for floor changes
           const weight = edge.distance + (edge.floorChange ? 50 : 0);
 
+          // Add edge from->to
           graph[edge.from].push({
             node: edge.to,
             weight,
             floorChange: edge.floorChange || 0,
           });
 
-          // Bidirectional only for same floor
+          // Add reverse edge for same floor paths
           if (!edge.floorChange) {
             graph[edge.to].push({
               node: edge.from,
@@ -177,25 +601,31 @@
         return graph;
       }
 
-      // Dijkstra's algorithm
+      // Dijkstra's algorithm for pathfinding
       function dijkstra(graph, start, end) {
         const distances = {};
         const prev = {};
         const queue = [];
 
+        // Initialize distances and previous nodes
         for (const node in graph) {
           distances[node] = Infinity;
           prev[node] = null;
           queue.push(node);
         }
+
+        // Set start node distance to 0
         distances[start] = 0;
 
         while (queue.length) {
+          // Sort by distance and get the closest node
           queue.sort((a, b) => distances[a] - distances[b]);
           const minNode = queue.shift();
 
+          // Stop if we reached the destination
           if (minNode === end) break;
 
+          // Update distances for neighbors
           graph[minNode].forEach((neighbor) => {
             const alt = distances[minNode] + neighbor.weight;
             if (alt < distances[neighbor.node]) {
@@ -205,6 +635,7 @@
           });
         }
 
+        // Build path by backtracking from end to start
         const path = [];
         let current = end;
         while (current) {
@@ -215,40 +646,88 @@
         return path;
       }
 
-      // Navigation functions
-      function showDestinations() {
-        destinationsDiv.innerHTML = "";
-        state.buildingData.nodes.forEach((node) => {
-          if (node.id !== state.currentNode) {
-            const div = document.createElement("div");
-            div.className = "dest-item";
-            div.textContent = node.name;
-            div.onclick = () => setDestination(node);
-            destinationsDiv.appendChild(div);
-          }
-        });
-        destinationsDiv.style.display = "block";
+      // Setup event listeners
+      function setupEventListeners() {
+        startBtn.addEventListener("click", showDestinations);
+        scanBtn.addEventListener("click", startQRScanning);
+        cancelScanBtn.addEventListener("click", stopQRScanning);
       }
 
+      // Show destinations panel
+      function showDestinations() {
+        if (!state.currentNode) {
+          alert("Please scan a QR code to set your current location first");
+          return;
+        }
+
+        destinationsList.innerHTML = "";
+
+        state.buildingData.nodes.forEach((node) => {
+          if (node.id !== state.currentNode) {
+            // Map categories to icons
+            const categoryIcons = {
+              room: "🚪",
+              lab: "🔬",
+              office: "👨‍💼",
+              stair: "🪜",
+              elevator: "🛗",
+              area: "🏢",
+              entrance: "🚪",
+              classroom: "📚",
+              cafeteria: "🍔",
+              restroom: "🚻",
+            };
+
+            const icon = categoryIcons[node.category] || "📍";
+
+            // Create destination item
+            const item = document.createElement("div");
+            item.className = "destination-item";
+            item.innerHTML = `
+                        <div class="qr-icon">${icon}</div>
+                        <div class="destination-name">${node.name}</div>
+                    `;
+            item.addEventListener("click", () => setDestination(node));
+            destinationsList.appendChild(item);
+          }
+        });
+
+        destinationsPanel.style.display = "block";
+      }
+
+      // Set destination and calculate path
       function setDestination(node) {
         state.destination = node;
-        destinationsDiv.style.display = "none";
+        destinationsPanel.style.display = "none";
         calculatePath();
       }
 
+      // Calculate path to destination
       function calculatePath() {
         if (!state.currentNode || !state.destination || !state.graph) return;
 
+        // Calculate path using Dijkstra's algorithm
         state.path = dijkstra(
           state.graph,
           state.currentNode,
           state.destination.id
         );
-        navInfo.textContent = `Path: ${state.path.join(" → ")}`;
+
+        // Update UI
+        navInfo.textContent = `Path to ${
+          state.destination.name
+        }: ${state.path.join(" → ")}`;
         navigateToNext();
+
+        // Show map
+        mapContainer.style.display = "block";
+        drawMap();
       }
 
+      // Navigate to next node in path
       function navigateToNext() {
+        if (state.path.length < 2) return;
+
         const nextNodeId = state.path[1];
         const nextNode = state.buildingData.nodes.find(
           (n) => n.id === nextNodeId
@@ -257,8 +736,14 @@
           (n) => n.id === state.currentNode
         );
 
+        if (!nextNode || !currentNode) return;
+
+        // Calculate direction vector
         const dx = nextNode.x - currentNode.x;
         const dy = nextNode.y - currentNode.y;
+
+        // Calculate the horizontal angle (in degrees)
+        const angle = Math.atan2(dy, dx) * (180 / Math.PI);
 
         // Vertical angle for floor changes
         const verticalAngle =
@@ -268,64 +753,248 @@
             ? 30
             : 0;
 
+        // Update AR arrow
+        arrowEntity.setAttribute("position", "0 0 0");
         arrowEntity.setAttribute("rotation", `0 ${angle} ${verticalAngle}`);
+        arrowEntity.setAttribute("visible", "true");
+
+        // Update instructions
+        let directionText;
+        if (verticalAngle !== 0) {
+          directionText =
+            nextNode.floor > currentNode.floor
+              ? `Go up to floor ${nextNode.floor}`
+              : `Go down to floor ${nextNode.floor}`;
+        } else {
+          directionText = `Head to ${nextNode.name}`;
+        }
+
+        navInfo.textContent = directionText;
+
+        // Update floor indicator if changed
+        if (currentNode.floor !== nextNode.floor) {
+          floorIndicator.textContent = `Floor ${nextNode.floor}`;
+        }
       }
 
-      // Draw 2D Map
+      // Draw 2D map
       function drawMap() {
         const ctx = mapCanvas.getContext("2d");
-        ctx.clearRect(0, 0, 300, 300);
+        ctx.clearRect(0, 0, 250, 250);
+
+        // Set scale to fit all nodes
+        const padding = 20;
+        const minX = Math.min(...state.buildingData.nodes.map((n) => n.x));
+        const maxX = Math.max(...state.buildingData.nodes.map((n) => n.x));
+        const minY = Math.min(...state.buildingData.nodes.map((n) => n.y));
+        const maxY = Math.max(...state.buildingData.nodes.map((n) => n.y));
+
+        const rangeX = maxX - minX;
+        const rangeY = maxY - minY;
+
+        state.mapScale = Math.min(
+          (250 - padding * 2) / rangeX,
+          (250 - padding * 2) / rangeY
+        );
 
         // Draw paths
-        ctx.strokeStyle = "#cccccc";
+        ctx.strokeStyle = "#aaaaaa";
         ctx.lineWidth = 2;
         state.buildingData.edges.forEach((edge) => {
           const from = state.buildingData.nodes.find((n) => n.id === edge.from);
           const to = state.buildingData.nodes.find((n) => n.id === edge.to);
-          if (from && to && from.floor === to.floor) {
+
+          if (from && to) {
+            const x1 = padding + (from.x - minX) * state.mapScale;
+            const y1 = padding + (from.y - minY) * state.mapScale;
+            const x2 = padding + (to.x - minX) * state.mapScale;
+            const y2 = padding + (to.y - minY) * state.mapScale;
+
             ctx.beginPath();
-            ctx.moveTo(from.x * state.mapScale, from.y * state.mapScale);
-            ctx.lineTo(to.x * state.mapScale, to.y * state.mapScale);
+            ctx.moveTo(x1, y1);
+            ctx.lineTo(x2, y2);
             ctx.stroke();
           }
         });
 
         // Draw nodes
         state.buildingData.nodes.forEach((node) => {
-          ctx.fillStyle =
-            node.id === state.currentNode
-              ? "#00ff00"
-              : node.id === state.destination?.id
-              ? "#ff0000"
-              : "#0000ff";
+          const x = padding + (node.x - minX) * state.mapScale;
+          const y = padding + (node.y - minY) * state.mapScale;
+
+          // Node color based on type
+          let color = "#3498db"; // Default blue
+          if (node.category === "room") color = "#1abc9c";
+          if (node.category === "lab") color = "#9b59b6";
+          if (node.category === "office") color = "#e74c3c";
+          if (node.category === "stair" || node.category === "elevator")
+            color = "#f39c12";
+          if (node.category === "entrance") color = "#2ecc71";
+
+          // Current node is green
+          if (node.id === state.currentNode) color = "#2ecc71";
+
+          // Destination is red
+          if (state.destination && node.id === state.destination.id)
+            color = "#e74c3c";
+
+          ctx.fillStyle = color;
           ctx.beginPath();
-          ctx.arc(
-            node.x * state.mapScale,
-            node.y * state.mapScale,
-            5,
-            0,
-            Math.PI * 2
-          );
+          ctx.arc(x, y, 6, 0, Math.PI * 2);
           ctx.fill();
 
-          // Draw node ID
-          ctx.fillStyle = "black";
-          ctx.font = "10px Arial";
-          ctx.fillText(
-            node.name,
-            node.x * state.mapScale + 8,
-            node.y * state.mapScale
-          );
+          // Draw node name
+          ctx.fillStyle = "#333";
+          ctx.font = "9px Arial";
+          ctx.textAlign = "center";
+          ctx.fillText(node.name, x, y + 20);
         });
-      }
 
-      // Update UI
-      function updateUI() {
-        if (state.currentNode) {
-          navInfo.textContent = `Current: ${state.currentNode}`;
-          drawMap();
+        // Draw path
+        if (state.path.length > 0) {
+          ctx.strokeStyle = "#e74c3c";
+          ctx.lineWidth = 3;
+          ctx.beginPath();
+
+          for (let i = 0; i < state.path.length; i++) {
+            const node = state.buildingData.nodes.find(
+              (n) => n.id === state.path[i]
+            );
+            if (!node) continue;
+
+            const x = padding + (node.x - minX) * state.mapScale;
+            const y = padding + (node.y - minY) * state.mapScale;
+
+            if (i === 0) {
+              ctx.moveTo(x, y);
+            } else {
+              ctx.lineTo(x, y);
+            }
+          }
+
+          ctx.stroke();
         }
       }
+
+      // Update status indicator
+      function updateStatus(text, status) {
+        statusText.textContent = text;
+        statusDot.className = "status-dot";
+        if (status === "good") {
+          statusDot.classList.add("status-good");
+        } else if (status === "error") {
+          statusDot.classList.add("status-error");
+        }
+      }
+
+      // Show error message
+      function showError(message) {
+        errorMessage.textContent = message;
+        errorMessage.style.display = "block";
+        loadingOverlay.style.display = "none";
+        updateStatus("Error", "error");
+      }
+
+      // QR Scanning functions
+      async function startQRScanning() {
+        try {
+          updateStatus("Scanning QR Code", "good");
+          state.qrScanActive = true;
+          qrScanOverlay.style.display = "flex";
+
+          videoStream = await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: "environment" },
+          });
+
+          qrScanVideo.srcObject = videoStream;
+          qrScanVideo.play();
+
+          // Set up scanning loop
+          scanningActive = true;
+          scanQRCode();
+        } catch (err) {
+          console.error("Camera error:", err);
+          updateStatus("Camera access denied", "error");
+          stopQRScanning();
+          alert("Camera access is required for QR scanning");
+        }
+      }
+
+      function stopQRScanning() {
+        scanningActive = false;
+        state.qrScanActive = false;
+        qrScanOverlay.style.display = "none";
+
+        if (videoStream) {
+          videoStream.getTracks().forEach((track) => track.stop());
+          videoStream = null;
+        }
+
+        updateStatus("Ready", "good");
+      }
+
+      function scanQRCode() {
+        if (!scanningActive) return;
+
+        if (qrScanVideo.readyState === qrScanVideo.HAVE_ENOUGH_DATA) {
+          qrCanvas.width = qrScanVideo.videoWidth;
+          qrCanvas.height = qrScanVideo.videoHeight;
+
+          qrCanvasCtx.drawImage(
+            qrScanVideo,
+            0,
+            0,
+            qrCanvas.width,
+            qrCanvas.height
+          );
+          const imageData = qrCanvasCtx.getImageData(
+            0,
+            0,
+            qrCanvas.width,
+            qrCanvas.height
+          );
+          const code = jsQR(imageData.data, imageData.width, imageData.height);
+
+          if (code) {
+            // Found a QR code!
+            handleScannedQR(code.data);
+            stopQRScanning();
+            return;
+          }
+        }
+
+        requestAnimationFrame(scanQRCode);
+      }
+
+      // Handle scanned QR code
+      function handleScannedQR(data) {
+        // QR data should be in format: building-nodeId
+        const parts = data.split("-");
+        const nodeId = parts.length > 1 ? parts[1] : data;
+
+        // Find the node in our building data
+        const node = state.buildingData.nodes.find((n) => n.id === nodeId);
+
+        if (node) {
+          state.currentNode = nodeId;
+          updateStatus(`At: ${node.name}`, "good");
+          navInfo.textContent = `You are at ${node.name}`;
+
+          // Update floor indicator
+          floorIndicator.textContent = `Floor ${node.floor}`;
+
+          // If we have a destination, recalculate path
+          if (state.destination) {
+            calculatePath();
+          }
+        } else {
+          updateStatus("Invalid QR code", "error");
+          navInfo.textContent = "Invalid room QR code. Please try another.";
+        }
+      }
+
+      // Start the app
+      initialize();
     </script>
   </body>
 </html>

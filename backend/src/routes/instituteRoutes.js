@@ -12,6 +12,7 @@ import {
   getInstitutePaths,
   deletePath,
   getInstituteNavData,
+  getBuildings
 } from "../controllers/instituteController.js";
 import { auth } from "../middleware/auth.js";
 import { requireRole } from "../middleware/role.js";
@@ -47,5 +48,7 @@ router.delete('/locations/:id', auth, deleteLocation);
 router.delete('/paths/:id', auth, deletePath);
 
 router.get('/:id/nav-data', getInstituteNavData);
+
+router.get('/:id/buildings', getBuildings);
 
 export default router;

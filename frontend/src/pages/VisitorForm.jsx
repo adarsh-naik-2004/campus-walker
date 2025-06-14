@@ -100,7 +100,7 @@ export default function VisitorForm() {
 
       toast.success("Registration successful!");
 
-      window.location.href = "/navigation.html";
+      window.location.href = `/navigation.html?instituteId=${selectedInstituteId}`
     } catch (error) {
       console.error("Registration error:", error); // Add this for debugging
       toast.error(error.response?.data?.message || "Failed to submit form");

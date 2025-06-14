@@ -572,6 +572,60 @@
         border-radius: 0.2rem;
         white-space: nowrap;
       }
+
+      #indoor-prompt-modal {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.7);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        z-index: 1000;
+      }
+
+      .modal-content {
+        background: white;
+        padding: 30px;
+        border-radius: 15px;
+        text-align: center;
+        max-width: 500px;
+        width: 90%;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+      }
+
+      .modal-buttons {
+        display: flex;
+        gap: 15px;
+        justify-content: center;
+        margin-top: 25px;
+      }
+
+      .modal-btn {
+        padding: 12px 25px;
+        border-radius: 50px;
+        font-weight: bold;
+        cursor: pointer;
+        transition: all 0.3s;
+        border: none;
+      }
+
+      #indoor-yes {
+        background: #4caf50;
+        color: white;
+      }
+
+      #indoor-no {
+        background: #f1f1f1;
+        color: #333;
+      }
+
+      .modal-btn:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+      }
     </style>
   </head>
   <body>
@@ -673,6 +727,19 @@
       </div>
     </div>
 
+    <div id="indoor-prompt-modal">
+      <div class="modal-content">
+        <h2>You've Arrived at the Building!</h2>
+        <p>Would you like indoor navigation to a specific room?</p>
+        <div class="modal-buttons">
+          <button id="indoor-yes" class="modal-btn">
+            Yes, Show Indoor Navigation
+          </button>
+          <button id="indoor-no" class="modal-btn">No, I'm Done</button>
+        </div>
+      </div>
+    </div>
+
     <script>
       let CAMPUS_NODES = {};
       let CAMPUS_PATHS = [];
@@ -722,6 +789,10 @@
       let announcedNodes = new Set();
       let lastAnnouncedNode = null;
       let lastAnnouncementTime = 0;
+      let arrivedAtBuilding = false;
+      let currentBuildingName = "";
+      const indoorPromptModal = document.getElementById("indoor-prompt-modal");
+      let destinationNode = null;
 
       const elements = {
         loader: document.querySelector(".arjs-loader"),
@@ -748,6 +819,8 @@
         statusDot: document.querySelector(".status-dot"),
         scene: document.getElementById("scene"),
         showUiBtn: document.getElementById("show-ui-btn"),
+        indoorYes: document.getElementById("indoor-yes"),
+        indoorNo: document.getElementById("indoor-no"),
       };
 
       function calculateDistance(lat1, lng1, lat2, lng2) {
@@ -889,119 +962,136 @@
       }
 
       // NEW: Create arrow marker at position with specified direction
-      function createDynamicArrow(lat, lng, bearing, height = 1.5, isNode = false) {
-      const arrow = document.createElement("a-entity");
-      arrow.classList.add("ar-arrow");
-      arrow.setAttribute("gps-entity-place", {
-        latitude: lat,
-        longitude: lng,
-        altitude: height
-      });
-      
-      // Create arrow with dynamic orientation
-      const arrowContainer = document.createElement("a-entity");
-      arrowContainer.setAttribute("rotation", `0 ${bearing} 0`);
-      
-      const arrowHead = document.createElement("a-entity");
-      arrowHead.classList.add("arrow-head");
-      arrowHead.setAttribute("geometry", "primitive: cone; radiusBottom: 0.5; radiusTop: 0; height: 1");
-      arrowHead.setAttribute("material", "color: #4CAF50; metalness: 0.5; roughness: 0.3");
-      arrowHead.setAttribute("position", "0 0.75 0");
-      
-      const arrowShaft = document.createElement("a-entity");
-      arrowShaft.classList.add("arrow-shaft");
-      arrowShaft.setAttribute("geometry", "primitive: cylinder; radius: 0.1; height: 1.5");
-      arrowShaft.setAttribute("material", "color: #4CAF50");
-      arrowShaft.setAttribute("position", "0 0 0");
-      
-      arrowContainer.appendChild(arrowHead);
-      arrowContainer.appendChild(arrowShaft);
-      arrow.appendChild(arrowContainer);
-      
-      // Add pulsing animation
-      arrow.setAttribute("animation", {
-        property: "scale",
-        dir: "alternate",
-        dur: 1000,
-        loop: true,
-        from: "1 1 1",
-        to: "1.1 1.1 1.1"
-      });
-      
-      elements.scene.appendChild(arrow);
-      pathArrows.push(arrow);
-      return arrow;
-    }
+      function createDynamicArrow(
+        lat,
+        lng,
+        bearing,
+        height = 1.5,
+        isNode = false
+      ) {
+        const arrow = document.createElement("a-entity");
+        arrow.classList.add("ar-arrow");
+        arrow.setAttribute("gps-entity-place", {
+          latitude: lat,
+          longitude: lng,
+          altitude: height,
+        });
 
-    function createPathArrows() {
-      clearPathArrows();
-      
-      if (!currentRoute.length) return;
-      
-      // Create arrows for each segment of the route
-      for (let i = 0; i < currentRoute.length - 1; i++) {
-        const fromNodeId = currentRoute[i];
-        const toNodeId = currentRoute[i + 1];
-        
-        const fromNode = CAMPUS_NODES[fromNodeId];
-        const toNode = CAMPUS_NODES[toNodeId];
-        
-        if (!fromNode || !toNode) continue;
-        
-        // Calculate bearing to next node
-        const bearing = calculateBearing(
-          fromNode.lat, 
-          fromNode.lng, 
-          toNode.lat, 
-          toNode.lng
+        // Create arrow with dynamic orientation
+        const arrowContainer = document.createElement("a-entity");
+        arrowContainer.setAttribute("rotation", `0 ${bearing} 0`);
+
+        const arrowHead = document.createElement("a-entity");
+        arrowHead.classList.add("arrow-head");
+        arrowHead.setAttribute(
+          "geometry",
+          "primitive: cone; radiusBottom: 0.5; radiusTop: 0; height: 1"
         );
-        
-        // Create arrow at node pointing to next node
-        createDynamicArrow(fromNode.lat, fromNode.lng, bearing, 1.5, true);
-        
-        // Create intermediate arrows along the path
-        const distance = calculateDistance(
-          fromNode.lat, 
-          fromNode.lng, 
-          toNode.lat, 
-          toNode.lng
+        arrowHead.setAttribute(
+          "material",
+          "color: #4CAF50; metalness: 0.5; roughness: 0.3"
         );
-        
-        if (distance > 20) {
-          const numArrows = Math.min(Math.floor(distance / 20), 3);
-          for (let j = 1; j <= numArrows; j++) {
-            const progress = j / (numArrows + 1);
-            const interLat = fromNode.lat + (toNode.lat - fromNode.lat) * progress;
-            const interLng = fromNode.lng + (toNode.lng - fromNode.lng) * progress;
-            
-            // Arrow points to the next node
-            createDynamicArrow(interLat, interLng, bearing, 1.0, false);
+        arrowHead.setAttribute("position", "0 0.75 0");
+
+        const arrowShaft = document.createElement("a-entity");
+        arrowShaft.classList.add("arrow-shaft");
+        arrowShaft.setAttribute(
+          "geometry",
+          "primitive: cylinder; radius: 0.1; height: 1.5"
+        );
+        arrowShaft.setAttribute("material", "color: #4CAF50");
+        arrowShaft.setAttribute("position", "0 0 0");
+
+        arrowContainer.appendChild(arrowHead);
+        arrowContainer.appendChild(arrowShaft);
+        arrow.appendChild(arrowContainer);
+
+        // Add pulsing animation
+        arrow.setAttribute("animation", {
+          property: "scale",
+          dir: "alternate",
+          dur: 1000,
+          loop: true,
+          from: "1 1 1",
+          to: "1.1 1.1 1.1",
+        });
+
+        elements.scene.appendChild(arrow);
+        pathArrows.push(arrow);
+        return arrow;
+      }
+
+      function createPathArrows() {
+        clearPathArrows();
+
+        if (!currentRoute.length) return;
+
+        // Create arrows for each segment of the route
+        for (let i = 0; i < currentRoute.length - 1; i++) {
+          const fromNodeId = currentRoute[i];
+          const toNodeId = currentRoute[i + 1];
+
+          const fromNode = CAMPUS_NODES[fromNodeId];
+          const toNode = CAMPUS_NODES[toNodeId];
+
+          if (!fromNode || !toNode) continue;
+
+          // Calculate bearing to next node
+          const bearing = calculateBearing(
+            fromNode.lat,
+            fromNode.lng,
+            toNode.lat,
+            toNode.lng
+          );
+
+          // Create arrow at node pointing to next node
+          createDynamicArrow(fromNode.lat, fromNode.lng, bearing, 1.5, true);
+
+          // Create intermediate arrows along the path
+          const distance = calculateDistance(
+            fromNode.lat,
+            fromNode.lng,
+            toNode.lat,
+            toNode.lng
+          );
+
+          if (distance > 20) {
+            const numArrows = Math.min(Math.floor(distance / 20), 3);
+            for (let j = 1; j <= numArrows; j++) {
+              const progress = j / (numArrows + 1);
+              const interLat =
+                fromNode.lat + (toNode.lat - fromNode.lat) * progress;
+              const interLng =
+                fromNode.lng + (toNode.lng - fromNode.lng) * progress;
+
+              // Arrow points to the next node
+              createDynamicArrow(interLat, interLng, bearing, 1.0, false);
+            }
           }
         }
-      }
-      
-      // Create arrow at the destination
-      const destinationId = currentRoute[currentRoute.length - 1];
-      const destinationNode = CAMPUS_NODES[destinationId];
-      if (destinationNode) {
-        createDynamicArrow(
-          destinationNode.lat, 
-          destinationNode.lng, 
-          0,  // Facing north at destination
-          1.5, 
-          true
-        );
-      }
-    }
 
-    function clearPathArrows() {
-      pathArrows.forEach(arrow => {
-        if (arrow.parentNode === elements.scene) {
-          elements.scene.removeChild(arrow);
+        // Create arrow at the destination
+        const destinationId = currentRoute[currentRoute.length - 1];
+        const destinationNode = CAMPUS_NODES[destinationId];
+        if (destinationNode) {
+          createDynamicArrow(
+            destinationNode.lat,
+            destinationNode.lng,
+            0, // Facing north at destination
+            1.5,
+            true
+          );
         }
-      });
-      pathArrows = [];
-    }
+      }
+
+      function clearPathArrows() {
+        pathArrows.forEach((arrow) => {
+          if (arrow.parentNode === elements.scene) {
+            elements.scene.removeChild(arrow);
+          }
+        });
+        pathArrows = [];
+      }
 
       function initLeafletMap() {
         // Initialize the Leaflet map if it hasn't been created yet
@@ -1469,6 +1559,15 @@
         checkNodeArrival();
 
         if (distance < 10) {
+          if (destNode.category === "building" && !arrivedAtBuilding) {
+            arrivedAtBuilding = true;
+            currentBuildingName = destNode.name;
+            destinationNode = destNode;
+
+            indoorPromptModal.style.display = "flex";
+            return;
+          }
+
           elements.distanceDisplay.textContent = "🎯 Arrived!";
           elements.directionDisplay.textContent =
             "You've reached your destination";
@@ -1697,6 +1796,28 @@
         });
 
         elements.showUiBtn.addEventListener("click", toggleUiVisibility);
+
+        elements.indoorYes.addEventListener("click", () => {
+          // Get instituteId from URL
+          const urlParams = new URLSearchParams(window.location.search);
+          const instituteId = urlParams.get("instituteId");
+
+          // Redirect to indoor navigation for this building
+          window.location.href = `indoor.html?building=${encodeURIComponent(
+            currentBuildingName
+          )}&instituteId=${instituteId}`;
+        });
+
+        elements.indoorNo.addEventListener("click", () => {
+          indoorPromptModal.style.display = "none";
+
+          // Continue with normal arrival handling
+          elements.distanceDisplay.textContent = "🎯 Arrived!";
+          elements.directionDisplay.textContent =
+            "You've reached your destination";
+          elements.instructionDisplay.textContent = `Welcome to ${destination.name}`;
+          setTimeout(() => stopNavigation(), 3000);
+        });
 
         // Handle window resize for Leaflet map
         window.addEventListener("resize", () => {
