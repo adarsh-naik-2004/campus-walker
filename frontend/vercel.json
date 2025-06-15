@@ -1,5 +1,20 @@
 {
+  "headers": [
+    {
+      "source": "/indoor.html",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=0, must-revalidate"
+        }
+      ]
+    }
+  ],
   "rewrites": [
+    {
+      "source": "/indoor.html",
+      "destination": "/indoor.html"
+    },
     {
       "source": "/((?!navigation\\.html).*)",
       "destination": "/"

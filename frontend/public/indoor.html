@@ -521,7 +521,6 @@
         } catch (error) {
           console.error("Initialization failed:", error);
 
-        
           loadingStatus.textContent = `Error: ${error.message}`;
 
           showError(`Initialization failed: ${error.message}`);
@@ -539,23 +538,22 @@
             )}`
           );
 
+          // Add debug logging
+          console.log("Building data response:", response.data);
+
+          if (!response.data || !response.data.nodes) {
+            throw new Error("Invalid building data format");
+          }
+
           state.buildingData = response.data;
           state.graph = buildGraph(response.data);
 
-          // Set initial floor if available
-          if (state.buildingData.nodes.length > 0) {
-            document.getElementById(
-              "floor-indicator"
-            ).textContent = `Floor ${state.buildingData.nodes[0].floor}`;
-          }
-
-          // Show UI elements
-          mapContainer.style.display = "block";
-          infoPanel.style.display = "block";
+          // ... rest of the code ...
         } catch (error) {
           console.error("Error loading building data:", error);
-          let message = "Failed to load building data";
+          console.error("Error details:", error.response?.data);
 
+          let message = "Failed to load building data";
           if (error.response) {
             if (error.response.status === 404) {
               message = "Building not found in database";
