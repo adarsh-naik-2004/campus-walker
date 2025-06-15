@@ -82,40 +82,51 @@ export const getIndoorPaths = async (req, res) => {
 
 export const getBuildingData = async (req, res) => {
   try {
-    const locationIds = locations.map((l) => l._id);
-    const paths = await IndoorPath.find({
-      $and: [{ from: { $in: locationIds } }, { to: { $in: locationIds } }],
-    });
+    const buildingName = req.params.building;
 
-    const graph = {
-      nodes: locations.map((loc) => ({
+    // Find all locations in the specified building
+    const locations = await IndoorLocation.find({ building: buildingName });
+    
+    if (locations.length === 0) {
+      return res.status(404).json({ message: "Building not found" });
+    }
+
+    // Get IDs of all locations in this building
+    const locationIds = locations.map(loc => loc._id);
+
+    // Find all paths between locations in this building
+    const paths = await IndoorPath.find({
+      $or: [
+        { from: { $in: locationIds } },
+        { to: { $in: locationIds } }
+      ]
+    })
+    .populate("from", "nodeId name floor x y category")
+    .populate("to", "nodeId name floor x y category");
+
+    // Prepare response data
+    const buildingData = {
+      nodes: locations.map(loc => ({
         id: loc.nodeId,
         name: loc.name,
         floor: loc.floor,
         x: loc.x,
         y: loc.y,
-        category: loc.category,
+        category: loc.category
       })),
-      edges: paths.map((path) => ({
+      edges: paths.map(path => ({
         from: path.from.nodeId,
         to: path.to.nodeId,
         distance: path.distance,
         isStair: path.isStair,
         isElevator: path.isElevator,
-        floorChange: path.floorChange,
-      })),
+        floorChange: path.floorChange
+      }))
     };
 
-    res.json({
-      nodes: locations.map((loc) => ({
-        id: loc.nodeId,
-        name: loc.name,
-        floor: loc.floor,
-        category: loc.category,
-      })),
-      edges: paths.map(/* ... */),
-    });
+    res.json(buildingData);
   } catch (err) {
+    console.error("Error fetching building data:", err);
     res.status(500).json({ message: "Server error" });
   }
 };
