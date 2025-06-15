@@ -20,6 +20,6 @@ router.post("/paths", auth, addIndoorPath);
 router.delete("/paths/:id", auth, deleteIndoorPath);
 router.get("/paths", getIndoorPaths);
 
-router.get("/building/:building", auth ,getBuildingData);
+router.get("/building/:building",getBuildingData);
 
 export default router;
