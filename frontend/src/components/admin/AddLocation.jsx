@@ -1,10 +1,13 @@
 import { useState, useEffect, useRef } from 'react'
 import api from '../../utils/api'
 import { toast } from 'react-hot-toast'
-// Mock toast for demo - replace with actual react-hot-toast
 
-
-export default function AddLocation({ instituteId = 'demo-institute' }) {
+export default function AddLocation({ 
+  instituteId = 'demo-institute', 
+  onLocationAdded,
+  onLocationUpdate,
+  refreshLocations
+}) {
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -43,12 +46,13 @@ export default function AddLocation({ instituteId = 'demo-institute' }) {
 
     // Small delay to ensure container is fully rendered
     setTimeout(() => {
-      // Initialize map centered on Mahesana, Gujarat
-      const map = window.L.map(mapRef.current).setView([23.526135, 72.456244], 15);
+      // Initialize map centered on Mahesana, Gujarat with higher zoom for accuracy
+      const map = window.L.map(mapRef.current).setView([23.526135, 72.456244], 18); // Increased zoom from 15 to 18
 
       // Add OpenStreetMap tiles
       window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '© OpenStreetMap contributors'
+        attribution: '© OpenStreetMap contributors',
+        maxZoom: 20 // Allow zooming up to level 20 for better accuracy
       }).addTo(map);
 
       // Force map to refresh its size after initialization
@@ -65,8 +69,15 @@ export default function AddLocation({ instituteId = 'demo-institute' }) {
           map.removeLayer(markerRef.current);
         }
         
-        // Add new marker
-        markerRef.current = window.L.marker([lat, lng]).addTo(map);
+        // Add new marker with custom icon for better visibility
+        const customIcon = window.L.divIcon({
+          className: 'custom-marker',
+          html: '<div style="background-color: #ef4444; width: 12px; height: 12px; border-radius: 50%; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3);"></div>',
+          iconSize: [16, 16],
+          iconAnchor: [8, 8]
+        });
+        
+        markerRef.current = window.L.marker([lat, lng], { icon: customIcon }).addTo(map);
         
         // Update coordinates (longitude = x, latitude = y, z = 0)
         setFormData(prev => ({
@@ -85,9 +96,15 @@ export default function AddLocation({ instituteId = 'demo-institute' }) {
 
       // If coordinates already exist, show marker
       if (formData.coordinates.x !== 0 || formData.coordinates.y !== 0) {
-        const existingMarker = window.L.marker([formData.coordinates.y, formData.coordinates.x]).addTo(map);
+        const customIcon = window.L.divIcon({
+          className: 'custom-marker',
+          html: '<div style="background-color: #ef4444; width: 12px; height: 12px; border-radius: 50%; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3);"></div>',
+          iconSize: [16, 16],
+          iconAnchor: [8, 8]
+        });
+        const existingMarker = window.L.marker([formData.coordinates.y, formData.coordinates.x], { icon: customIcon }).addTo(map);
         markerRef.current = existingMarker;
-        map.setView([formData.coordinates.y, formData.coordinates.x], 15);
+        map.setView([formData.coordinates.y, formData.coordinates.x], 18); // Higher zoom for existing coordinates
       }
     }, 50);
   };
@@ -109,6 +126,23 @@ export default function AddLocation({ instituteId = 'demo-institute' }) {
         setImagePreview(reader.result);
       };
       reader.readAsDataURL(file);
+    }
+  };
+
+  const resetForm = () => {
+    setFormData({
+      name: '',
+      description: '',
+      floor: 1,
+      category: 'building',
+      coordinates: { x: 0, y: 0, z: 0 }
+    });
+    setImagePreview(null);
+    
+    // Clear map marker
+    if (markerRef.current && leafletMapRef.current) {
+      leafletMapRef.current.removeLayer(markerRef.current);
+      markerRef.current = null;
     }
   };
 
@@ -139,19 +173,6 @@ export default function AddLocation({ instituteId = 'demo-institute' }) {
     }
 
     try {
-      // Simulated API call for demo
-      console.log('Form data to submit:', {
-        name: formData.name,
-        description: formData.description,
-        floor: formData.floor,
-        category: formData.category,
-        coordinates: formData.coordinates,
-        hasImage: !!imagePreview
-      });
-      
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
       const { data } = await api.post(
         '/institute/locations', 
         formPayload,
@@ -164,23 +185,25 @@ export default function AddLocation({ instituteId = 'demo-institute' }) {
       );
       
       toast.success('Location added successfully!');
-      setFormData({
-        name: '',
-        description: '',
-        floor: 1,
-        category: 'building',
-        coordinates: { x: 0, y: 0, z: 0 }
-      });
-      setImagePreview(null);
       
-      // Clear map marker
-      if (markerRef.current && leafletMapRef.current) {
-        leafletMapRef.current.removeLayer(markerRef.current);
-        markerRef.current = null;
+      // Reset form
+      resetForm();
+      
+      // Call the callback to update parent component immediately
+      if (onLocationAdded && typeof onLocationAdded === 'function') {
+        onLocationAdded(data); // Pass the new location data to parent
       }
       
+      // Also call the update function to refresh the locations list
+      if (onLocationUpdate && typeof onLocationUpdate === 'function') {
+        onLocationUpdate(); // Trigger refresh of locations list
+      }
+
+      if (refreshLocations) refreshLocations();
+      
     } catch (error) {
-      toast.error('Error adding location');
+      console.error('Error adding location:', error);
+      toast.error(error.response?.data?.message || 'Error adding location');
     } finally {
       setLoading(false);
     }
@@ -312,9 +335,10 @@ export default function AddLocation({ instituteId = 'demo-institute' }) {
                   <span className="text-blue-600">📍</span>
                   <p className="font-medium">Click anywhere on the map to select coordinates</p>
                 </div>
-                <p className="text-xs text-gray-500">
-                  The selected coordinates will automatically populate the fields below
-                </p>
+                <div className="flex items-center gap-4 text-xs text-gray-500">
+                  <p>• Use mouse wheel or +/- buttons to zoom</p>
+                  <p>• Higher zoom = more accurate positioning</p>
+                </div>
               </div>
             </div>
           )}
@@ -334,13 +358,35 @@ export default function AddLocation({ instituteId = 'demo-institute' }) {
                   className="w-full px-3 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all text-sm"
                   placeholder={placeholder}
                   value={formData.coordinates[key]}
-                  onChange={(e) => setFormData({
-                    ...formData,
-                    coordinates: { 
+                  onChange={(e) => {
+                    const newCoordinates = {
                       ...formData.coordinates, 
                       [key]: parseFloat(e.target.value) || 0
+                    };
+                    setFormData({
+                      ...formData,
+                      coordinates: newCoordinates
+                    });
+                    
+                    // Update map marker if coordinates are manually entered
+                    if (leafletMapRef.current && newCoordinates.x !== 0 && newCoordinates.y !== 0) {
+                      // Remove existing marker
+                      if (markerRef.current) {
+                        leafletMapRef.current.removeLayer(markerRef.current);
+                      }
+                      
+                      // Add new marker
+                      const customIcon = window.L.divIcon({
+                        className: 'custom-marker',
+                        html: '<div style="background-color: #ef4444; width: 12px; height: 12px; border-radius: 50%; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3);"></div>',
+                        iconSize: [16, 16],
+                        iconAnchor: [8, 8]
+                      });
+                      
+                      markerRef.current = window.L.marker([newCoordinates.y, newCoordinates.x], { icon: customIcon }).addTo(leafletMapRef.current);
+                      leafletMapRef.current.setView([newCoordinates.y, newCoordinates.x], 18);
                     }
-                  })}
+                  }}
                 />
                 <p className="text-xs text-gray-400">{desc}</p>
               </div>

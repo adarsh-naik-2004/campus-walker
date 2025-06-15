@@ -6,37 +6,47 @@ export default function ViewLocations({
   institutes,
   selectedInstitute,
   setSelectedInstitute,
+  refreshTrigger, 
+  refreshLocations
 }) {
   const [locations, setLocations] = useState([]);
   const [loading, setLoading] = useState(false);
   const [instituteName, setInstituteName] = useState("");
 
+
   useEffect(() => {
-    const fetchLocations = async () => {
-      if (selectedInstitute) {
-        try {
-          setLoading(true);
-          const token = localStorage.getItem("token");
-          
-          // Get institute name for display
-          const institute = institutes.find(inst => inst._id === selectedInstitute);
-          setInstituteName(institute?.name || "");
-          
-          // Fetch locations
-          const { data } = await api.get(
-            `/institute/${selectedInstitute}/locations`,
-            { headers: { "x-auth-token": token } }
-          );
-          setLocations(data);
-        } catch (error) {
-          toast.error("Failed to load locations");
-        } finally {
-          setLoading(false);
-        }
+    if (refreshLocations) {
+      fetchLocations();
+    }
+  }, [refreshLocations]);
+
+  const fetchLocations = async () => {
+    if (selectedInstitute) {
+      try {
+        setLoading(true);
+        const token = localStorage.getItem("token");
+        
+        // Get institute name for display
+        const institute = institutes.find(inst => inst._id === selectedInstitute);
+        setInstituteName(institute?.name || "");
+        
+        // Fetch locations
+        const { data } = await api.get(
+          `/institute/${selectedInstitute}/locations`,
+          { headers: { "x-auth-token": token } }
+        );
+        setLocations(data);
+      } catch (error) {
+        toast.error("Failed to load locations");
+      } finally {
+        setLoading(false);
       }
-    };
+    }
+  };
+
+  useEffect(() => {
     fetchLocations();
-  }, [selectedInstitute]);
+  }, [selectedInstitute, refreshTrigger]); // Add refreshTrigger as dependency
 
   const handleDeleteLocation = async (locationId) => {
     if (window.confirm("Are you sure you want to delete this location?")) {
@@ -51,6 +61,30 @@ export default function ViewLocations({
         toast.error("Failed to delete location");
       }
     }
+  };
+
+  // Function to get coordinate values (handles both old and new format)
+  const getCoordinateValue = (location, type) => {
+    // Check if using new format (x, y, z)
+    if (location.coordinates && typeof location.coordinates === 'object') {
+      if ('x' in location.coordinates && 'y' in location.coordinates) {
+        switch (type) {
+          case 'latitude':
+            return location.coordinates.y || 0;
+          case 'longitude':
+            return location.coordinates.x || 0;
+          case 'altitude':
+            return location.coordinates.z || 0;
+          default:
+            return 0;
+        }
+      }
+      // Check if using old format (latitude, longitude, altitude)
+      if ('latitude' in location.coordinates) {
+        return location.coordinates[type] || 0;
+      }
+    }
+    return 0;
   };
 
   return (
@@ -132,7 +166,7 @@ export default function ViewLocations({
                       {location.institute?.name || "N/A"}
                     </div>
                   </td>
-                   <td className="px-6 py-4">
+                  <td className="px-6 py-4">
                     {location.image ? (
                       <div className="w-16 h-16 rounded-lg overflow-hidden border">
                         <img 
@@ -168,29 +202,29 @@ export default function ViewLocations({
                       <div className="flex items-baseline gap-1">
                         <span className="text-gray-500 w-20">Latitude:</span>
                         <span className="font-mono">
-                          {location.coordinates.latitude.toFixed(6)}
+                          {getCoordinateValue(location, 'latitude').toFixed(6)}
                         </span>
                       </div>
                       <div className="flex items-baseline gap-1">
                         <span className="text-gray-500 w-20">Longitude:</span>
                         <span className="font-mono">
-                          {location.coordinates.longitude.toFixed(6)}
+                          {getCoordinateValue(location, 'longitude').toFixed(6)}
                         </span>
                       </div>
                       <div className="flex items-baseline gap-1">
                         <span className="text-gray-500 w-20">Altitude:</span>
                         <span className="font-mono">
-                          {location.coordinates.altitude.toFixed(2)}
+                          {getCoordinateValue(location, 'altitude').toFixed(2)}
                         </span>
                       </div>
                     </div>
                   </td>
                   <td className="px-6 py-4">
                     <button
-                      className="text-red-500 hover:text-red-700"
+                      className="text-red-500 hover:text-red-700 px-3 py-1 rounded hover:bg-red-50 transition-colors"
                       onClick={() => handleDeleteLocation(location._id)}
                     >
-                      Delete
+                      🗑️ Delete
                     </button>
                   </td>
                 </tr>

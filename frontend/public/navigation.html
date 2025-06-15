@@ -134,7 +134,7 @@
         color: #4caf50;
         margin-bottom: 8px;
         text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.5);
-        margin-top: 80px;
+        margin-top: 40px;
       }
 
       #direction-display {
@@ -727,19 +727,6 @@
       </div>
     </div>
 
-    <div id="indoor-prompt-modal">
-      <div class="modal-content">
-        <h2>You've Arrived at the Building!</h2>
-        <p>Would you like indoor navigation to a specific room?</p>
-        <div class="modal-buttons">
-          <button id="indoor-yes" class="modal-btn">
-            Yes, Show Indoor Navigation
-          </button>
-          <button id="indoor-no" class="modal-btn">No, I'm Done</button>
-        </div>
-      </div>
-    </div>
-
     <script>
       let CAMPUS_NODES = {};
       let CAMPUS_PATHS = [];
@@ -789,9 +776,6 @@
       let announcedNodes = new Set();
       let lastAnnouncedNode = null;
       let lastAnnouncementTime = 0;
-      let arrivedAtBuilding = false;
-      let currentBuildingName = "";
-      const indoorPromptModal = document.getElementById("indoor-prompt-modal");
       let destinationNode = null;
 
       const elements = {
@@ -1559,12 +1543,14 @@
         checkNodeArrival();
 
         if (distance < 10) {
-          if (destNode.category === "building" && !arrivedAtBuilding) {
-            arrivedAtBuilding = true;
-            currentBuildingName = destNode.name;
-            destinationNode = destNode;
+          if (destNode.category === "building") {
 
-            indoorPromptModal.style.display = "flex";
+            const urlParams = new URLSearchParams(window.location.search);
+            const instituteId = urlParams.get("instituteId");
+
+            window.location.href = `indoor.html?building=${encodeURIComponent(
+              destNode.name
+            )}&instituteId=${instituteId}`;
             return;
           }
 
@@ -1796,28 +1782,6 @@
         });
 
         elements.showUiBtn.addEventListener("click", toggleUiVisibility);
-
-        elements.indoorYes.addEventListener("click", () => {
-          // Get instituteId from URL
-          const urlParams = new URLSearchParams(window.location.search);
-          const instituteId = urlParams.get("instituteId");
-
-          // Redirect to indoor navigation for this building
-          window.location.href = `indoor.html?building=${encodeURIComponent(
-            currentBuildingName
-          )}&instituteId=${instituteId}`;
-        });
-
-        elements.indoorNo.addEventListener("click", () => {
-          indoorPromptModal.style.display = "none";
-
-          // Continue with normal arrival handling
-          elements.distanceDisplay.textContent = "🎯 Arrived!";
-          elements.directionDisplay.textContent =
-            "You've reached your destination";
-          elements.instructionDisplay.textContent = `Welcome to ${destination.name}`;
-          setTimeout(() => stopNavigation(), 3000);
-        });
 
         // Handle window resize for Leaflet map
         window.addEventListener("resize", () => {

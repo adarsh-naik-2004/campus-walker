@@ -8,6 +8,28 @@ import { useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 import CreateSuperAdmin from "./CreateSuperAdmin.jsx";
 import api from "../../utils/api.js";
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  Title,
+  Tooltip,
+  Legend,
+  ArcElement,
+} from "chart.js";
+import { Bar, Pie } from "react-chartjs-2";
+
+// Register Chart.js components
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  Title,
+  Tooltip,
+  Legend,
+  ArcElement
+);
 
 export default function SuperAdminDashboard() {
   const [activeTab, setActiveTab] = useState("visitors");
@@ -27,7 +49,7 @@ export default function SuperAdminDashboard() {
   const handleLogout = () => {
     localStorage.removeItem("token");
     localStorage.removeItem("user");
-    navigate("/admin"); // Adjust the path to your login route
+    navigate("/admin");
   };
 
   useEffect(() => {
@@ -35,22 +57,13 @@ export default function SuperAdminDashboard() {
       try {
         const token = localStorage.getItem("token");
 
-        // Parse user from localStorage once at the start
         try {
           const user = JSON.parse(localStorage.getItem("user"));
           if (user && (user._id || user.userId)) {
-            // Check for both _id and userId
             setLoggedInAdminId(user._id || user.userId);
-          } else {
-            console.warn(
-              "User data or user ID/userId not found in localStorage."
-            );
-            // Consider logging out or redirecting if essential user data is missing
-            // handleLogout();
           }
         } catch (error) {
-          console.error("Error parsing user from localStorage:", error);
-          // handleLogout(); // Consider logging out here if parsing fails
+          console.error("Error parsing user:", error);
         }
 
         const [uniRes, visRes, adminRes, superAdminRes] = await Promise.all([
@@ -69,10 +82,10 @@ export default function SuperAdminDashboard() {
         setUniversities(uniRes.data);
         setVisitors(visRes.data);
         setUniversityAdmins(adminRes.data);
-        setSuperAdmins(superAdminRes.data); // This data already has `isCurrentUser` from backend
+        setSuperAdmins(superAdminRes.data);
       } catch (error) {
-        console.error("Error fetching initial data:", error);
-        if (error.response && error.response.status === 401) {
+        console.error("Error fetching data:", error);
+        if (error.response?.status === 401) {
           toast.error("Session expired. Please log in again.");
           handleLogout();
         } else {
@@ -82,6 +95,65 @@ export default function SuperAdminDashboard() {
     };
     fetchInitialData();
   }, []);
+
+  // Prepare visitor chart data
+  const prepareVisitorCharts = () => {
+    // Visitors by date
+    const visitorsByDate = visitors.reduce((acc, visitor) => {
+      const date = new Date(visitor.createdAt).toLocaleDateString();
+      acc[date] = (acc[date] || 0) + 1;
+      return acc;
+    }, {});
+
+    // Visitors by university
+    const visitorsByUniversity = visitors.reduce((acc, visitor) => {
+      const universityName = visitor.university?.name || "Unknown University";
+      acc[universityName] = (acc[universityName] || 0) + 1;
+      return acc;
+    }, {});
+
+    return {
+      dateData: {
+        labels: Object.keys(visitorsByDate),
+        datasets: [
+          {
+            label: "Visitors per Day",
+            data: Object.values(visitorsByDate),
+            backgroundColor: "rgba(59, 130, 246, 0.6)",
+            borderColor: "rgba(59, 130, 246, 1)",
+            borderWidth: 1,
+          },
+        ],
+      },
+      universityData: {
+        labels: Object.keys(visitorsByUniversity),
+        datasets: [
+          {
+            data: Object.values(visitorsByUniversity),
+            backgroundColor: [
+              "rgba(255, 99, 132, 0.6)",
+              "rgba(54, 162, 235, 0.6)",
+              "rgba(255, 206, 86, 0.6)",
+              "rgba(75, 192, 192, 0.6)",
+              "rgba(153, 102, 255, 0.6)",
+              "rgba(255, 159, 64, 0.6)",
+            ],
+            borderColor: [
+              "rgba(255, 99, 132, 1)",
+              "rgba(54, 162, 235, 1)",
+              "rgba(255, 206, 86, 1)",
+              "rgba(75, 192, 192, 1)",
+              "rgba(153, 102, 255, 1)",
+              "rgba(255, 159, 64, 1)",
+            ],
+            borderWidth: 1,
+          },
+        ],
+      },
+    };
+  };
+
+  const visitorCharts = visitors.length > 0 ? prepareVisitorCharts() : null;
 
   const fetchSuperAdmins = async () => {
     try {
@@ -99,10 +171,9 @@ export default function SuperAdminDashboard() {
   const fetchInstitutes = async (universityId) => {
     try {
       const token = localStorage.getItem("token");
-      const { data } = await api.get(
-        `/university/${universityId}/institutes`,
-        { headers: { "x-auth-token": token } } // Add headers
-      );
+      const { data } = await api.get(`/university/${universityId}/institutes`, {
+        headers: { "x-auth-token": token },
+      });
       setInstitutes(data);
     } catch (error) {
       console.error("Error fetching institutes:", error);
@@ -113,10 +184,9 @@ export default function SuperAdminDashboard() {
   const fetchInstituteAdmins = async (instituteId) => {
     try {
       const token = localStorage.getItem("token");
-      const { data } = await api.get(
-        `/institute/${instituteId}/admins`,
-        { headers: { "x-auth-token": token } } // Add this line
-      );
+      const { data } = await api.get(`/institute/${instituteId}/admins`, {
+        headers: { "x-auth-token": token },
+      });
       setInstituteAdmins(data);
     } catch (error) {
       console.error("Error fetching institute admins:", error);
@@ -172,155 +242,272 @@ export default function SuperAdminDashboard() {
     (admin) => admin._id !== loggedInAdminId
   );
 
+  const tabs = [
+    { id: "visitors", label: "Visitors", icon: "👥", count: visitors.length },
+    {
+      id: "super-admins",
+      label: "Super Admins",
+      icon: "👑",
+      count: superAdmins.length,
+    },
+    {
+      id: "universities",
+      label: "Universities",
+      icon: "🏛️",
+      count: universities.length,
+    },
+    {
+      id: "university-admins",
+      label: "Uni Admins",
+      icon: "🏫",
+      count: universityAdmins.length,
+    },
+    {
+      id: "institutes",
+      label: "Institutes",
+      icon: "🏢",
+      count: institutes.length,
+    },
+    {
+      id: "institute-admins",
+      label: "Inst Admins",
+      icon: "💼",
+      count: instituteAdmins.length,
+    },
+    { id: "locations", label: "Locations", icon: "📍" },
+  ];
+
   return (
-    <div className="min-h-screen bg-gray-50 p-4 md:p-6">
-      <div className="max-w-7xl mx-auto">
-        {/* Header Section */}
-        <div className="flex items-center justify-between mb-6 md:mb-8">
-          <div className="flex items-center gap-3">
-            {/* Mobile Menu Button */}
-            <button
-              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="md:hidden p-2 rounded-lg bg-white shadow-sm border border-gray-200 hover:bg-gray-50 transition-colors"
-            >
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                {mobileMenuOpen ? (
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                ) : (
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-                )}
-              </svg>
-            </button>
-            
-            <h1 className="text-2xl md:text-3xl font-bold flex items-center gap-2">
-              <span className="text-2xl md:text-3xl">🛡️</span> 
-              <span className="hidden sm:inline">Super Admin Dashboard</span>
-              <span className="sm:hidden">Admin</span>
-            </h1>
-          </div>
-          
-          <button
-            onClick={handleLogout}
-            className="px-4 py-2 md:px-6 md:py-2 bg-gradient-to-r from-red-600 to-rose-600 text-white rounded-lg font-semibold hover:from-red-700 hover:to-rose-700 transition-all transform hover:scale-[1.02] shadow-md text-sm md:text-base"
-          >
-            Logout
-          </button>
-        </div>
-
-        {/* Mobile Menu Overlay */}
-        {mobileMenuOpen && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 z-40 md:hidden" onClick={() => setMobileMenuOpen(false)} />
-        )}
-
-        {/* Mobile Menu Sidebar */}
-        <div className={`fixed top-0 left-0 h-full w-80 bg-white shadow-2xl z-50 transform transition-transform duration-300 ease-in-out md:hidden ${
-          mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
-        }`}>
-          <div className="p-6">
-            <div className="flex items-center justify-between mb-8">
-              <h2 className="text-xl font-bold text-gray-800">Menu</h2>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-gray-100">
+      {/* Header Section */}
+      <div className="bg-white border-b border-gray-200 shadow-sm">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4">
+          <div className="flex items-center justify-between">
+            {/* Left: Title and Mobile Menu Button */}
+            <div className="flex items-center space-x-3">
+              {/* Mobile Menu Button */}
               <button
-                onClick={() => setMobileMenuOpen(false)}
-                className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
+                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                className="md:hidden p-2 rounded-lg hover:bg-gray-100"
               >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                <svg
+                  className="w-6 h-6"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  {mobileMenuOpen ? (
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M6 18L18 6M6 6l12 12"
+                    />
+                  ) : (
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M4 6h16M4 12h16M4 18h16"
+                    />
+                  )}
                 </svg>
               </button>
+
+              <div className="flex items-center space-x-3">
+                <h1 className="text-xl md:text-2xl font-bold text-gray-900 truncate">
+                  🛡️ Super Admin Dashboard
+                </h1>
+              </div>
             </div>
-            
-            <nav className="space-y-2">
-              {[
-                { id: "visitors", label: "Visitors", icon: "👥" },
-                { id: "super-admins", label: "Super Admins", icon: "👑" },
-                { id: "universities", label: "Universities", icon: "🏛️" },
-                { id: "university-admins", label: "University Admins", icon: "🏫" },
-                { id: "institutes", label: "Institutes", icon: "🏢" },
-                { id: "institute-admins", label: "Institute Admins", icon: "💼" },
-                { id: "locations", label: "Locations", icon: "📍" },
-              ].map((tab) => (
-                <button
-                  key={tab.id}
-                  className={`w-full px-4 py-3 rounded-lg flex items-center gap-3 text-left transition-all ${
-                    activeTab === tab.id
-                      ? "bg-blue-100 text-blue-600 border-l-4 border-blue-600"
-                      : "hover:bg-gray-100 text-gray-700"
-                  }`}
-                  onClick={() => {
-                    setActiveTab(tab.id);
-                    setMobileMenuOpen(false);
-                  }}
-                >
-                  <span className="text-xl">{tab.icon}</span>
-                  <span className="font-medium">{tab.label}</span>
-                </button>
-              ))}
-            </nav>
-          </div>
-        </div>
 
-        {/* Desktop Navigation Menu */}
-        <div className="hidden md:flex flex-wrap gap-2 mb-8 bg-white p-2 rounded-xl shadow-sm">
-          {[
-            { id: "visitors", label: "Visitors", icon: "👥" },
-            { id: "super-admins", label: "Super Admins", icon: "👑" },
-            { id: "universities", label: "Universities", icon: "🏛️" },
-            { id: "university-admins", label: "University Admins", icon: "🏫" },
-            { id: "institutes", label: "Institutes", icon: "🏢" },
-            { id: "institute-admins", label: "Institute Admins", icon: "💼" },
-            { id: "locations", label: "Locations", icon: "📍" },
-          ].map((tab) => (
+            {/* Logout Button */}
             <button
-              key={tab.id}
-              className={`px-4 py-2 rounded-lg flex items-center gap-2 transition-all ${
-                activeTab === tab.id
-                  ? "bg-blue-100 text-blue-600"
-                  : "hover:bg-gray-100"
-              }`}
-              onClick={() => setActiveTab(tab.id)}
+              onClick={handleLogout}
+              className="flex items-center space-x-2 px-3 py-1.5 md:px-4 md:py-2 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-lg font-medium hover:from-red-600 hover:to-red-700 transition-all duration-200 shadow-md hover:shadow-lg text-sm md:text-base"
             >
-              <span className="text-xl">{tab.icon}</span>
-              <span className="hidden lg:inline">{tab.label}</span>
+              <span>🚪</span>
+              <span className="hidden sm:inline">Logout</span>
             </button>
-          ))}
-        </div>
-
-        {/* Mobile Active Tab Indicator */}
-        <div className="md:hidden mb-6 bg-white rounded-xl shadow-sm p-4">
-          <div className="flex items-center gap-3">
-            <span className="text-2xl">
-              {[
-                { id: "visitors", icon: "👥" },
-                { id: "super-admins", icon: "👑" },
-                { id: "universities", icon: "🏛️" },
-                { id: "university-admins", icon: "🏫" },
-                { id: "institutes", icon: "🏢" },
-                { id: "institute-admins", icon: "💼" },
-                { id: "locations", icon: "📍" },
-              ].find(tab => tab.id === activeTab)?.icon}
-            </span>
-            <h2 className="text-lg font-semibold text-gray-800">
-              {[
-                { id: "visitors", label: "Visitors" },
-                { id: "super-admins", label: "Super Admins" },
-                { id: "universities", label: "Universities" },
-                { id: "university-admins", label: "University Admins" },
-                { id: "institutes", label: "Institutes" },
-                { id: "institute-admins", label: "Institute Admins" },
-                { id: "locations", label: "Locations" },
-              ].find(tab => tab.id === activeTab)?.label}
-            </h2>
           </div>
         </div>
+      </div>
 
-        {/* Content Sections */}
-        <div className="space-y-8 md:space-y-12">
+      {/* Mobile Menu Overlay */}
+      {mobileMenuOpen && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 z-40 md:hidden"
+          onClick={() => setMobileMenuOpen(false)}
+        />
+      )}
+
+      {/* Mobile Menu Sidebar */}
+      <div
+        className={`fixed top-0 left-0 h-full w-64 bg-white shadow-2xl z-50 transform transition-transform duration-300 ease-in-out md:hidden ${
+          mobileMenuOpen ? "translate-x-0" : "-translate-x-full"
+        }`}
+      >
+        <div className="p-6">
+          <div className="flex items-center justify-between mb-8">
+            <h2 className="text-xl font-bold text-gray-800">Menu</h2>
+            <button
+              onClick={() => setMobileMenuOpen(false)}
+              className="p-2 rounded-lg hover:bg-gray-100"
+            >
+              <svg
+                className="w-6 h-6"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M6 18L18 6M6 6l12 12"
+                />
+              </svg>
+            </button>
+          </div>
+
+          <nav className="space-y-2">
+            {tabs.map((tab) => (
+              <button
+                key={tab.id}
+                className={`w-full px-4 py-3 rounded-lg flex items-center gap-3 text-left transition-all ${
+                  activeTab === tab.id
+                    ? "bg-blue-100 text-blue-600 border-l-4 border-blue-600"
+                    : "hover:bg-gray-100 text-gray-700"
+                }`}
+                onClick={() => {
+                  setActiveTab(tab.id);
+                  setMobileMenuOpen(false);
+                }}
+              >
+                <span className="text-xl">{tab.icon}</span>
+                <span className="font-medium">{tab.label}</span>
+                {tab.count !== undefined && (
+                  <span className="ml-auto bg-gray-200 text-gray-700 rounded-full px-2 py-1 text-xs">
+                    {tab.count}
+                  </span>
+                )}
+              </button>
+            ))}
+          </nav>
+        </div>
+      </div>
+
+      {/* Desktop Navigation */}
+      <div className="hidden md:block bg-white border-b border-gray-200">
+        <div className="max-w-7xl mx-auto px-6">
+          <nav
+            className="flex space-x-8 overflow-x-auto py-2"
+            aria-label="Tabs"
+          >
+            {tabs.map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`
+                  flex items-center space-x-2 py-4 px-1 border-b-2 font-medium text-sm transition-all duration-200 whitespace-nowrap
+                  ${
+                    activeTab === tab.id
+                      ? "border-blue-500 text-blue-600"
+                      : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                  }
+                `}
+              >
+                <span className="text-lg">{tab.icon}</span>
+                <span>{tab.label}</span>
+                {tab.count !== undefined && (
+                  <span
+                    className={`
+                      inline-flex items-center justify-center px-2 py-1 text-xs font-bold rounded-full
+                      ${
+                        activeTab === tab.id
+                          ? "bg-blue-100 text-blue-800"
+                          : "bg-gray-100 text-gray-600"
+                      }
+                    `}
+                  >
+                    {tab.count}
+                  </span>
+                )}
+              </button>
+            ))}
+          </nav>
+        </div>
+      </div>
+
+      {/* Main Content */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6">
+        {/* Tab Content */}
+        <div className="tab-content">
+          {/* Visitors Tab */}
           {activeTab === "visitors" && (
-            <div className="bg-white rounded-2xl shadow-lg p-4 md:p-6">
-              <h2 className="text-xl md:text-2xl font-bold mb-4 md:mb-6 flex items-center gap-2">
-                👥 Visitor Records
-              </h2>
-              <div className="overflow-x-auto rounded-lg border border-gray-100">
+            <div className="bg-white rounded-2xl shadow-lg">
+              <div className="px-4 sm:px-6 py-4 border-b border-gray-200">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-3">
+                    <span className="text-2xl">👥</span>
+                    <div>
+                      <h2 className="text-xl font-bold text-gray-900">
+                        Visitor Records
+                      </h2>
+                      <p className="text-sm text-gray-600">
+                        All visitors across all universities
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-sm text-gray-500">
+                    Total:{" "}
+                    <span className="font-bold text-gray-900">
+                      {visitors.length}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Visitor Charts */}
+              {visitors.length > 0 && visitorCharts && (
+                <div className="p-4 sm:p-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  <div className="bg-gray-50 p-4 rounded-xl">
+                    <h3 className="text-lg font-semibold text-gray-800 mb-4">
+                      Visitors by Date
+                    </h3>
+                    <div className="h-64">
+                      <Bar
+                        data={visitorCharts.dateData}
+                        options={{
+                          responsive: true,
+                          maintainAspectRatio: false,
+                          plugins: {
+                            legend: { position: "top" },
+                            title: { display: true, text: "Visitors per Day" },
+                          },
+                        }}
+                      />
+                    </div>
+                  </div>
+                  <div className="bg-gray-50 p-4 rounded-xl">
+                    <h3 className="text-lg font-semibold text-gray-800 mb-4">
+                      Visitors by University
+                    </h3>
+                    <div className="h-64">
+                      <Pie
+                        data={visitorCharts.universityData}
+                        options={{
+                          responsive: true,
+                          maintainAspectRatio: false,
+                          plugins: { legend: { position: "right" } },
+                        }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50">
                     <tr>
@@ -335,7 +522,7 @@ export default function SuperAdminDashboard() {
                       ].map((header) => (
                         <th
                           key={header}
-                          className="px-3 md:px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider"
+                          className="px-4 sm:px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider"
                         >
                           {header}
                         </th>
@@ -345,39 +532,38 @@ export default function SuperAdminDashboard() {
                   <tbody className="bg-white divide-y divide-gray-200">
                     {visitors.map((visitor) => (
                       <tr key={visitor._id} className="hover:bg-gray-50">
-                        <td className="px-3 md:px-6 py-4 font-medium text-sm md:text-base">
+                        <td className="px-4 sm:px-6 py-4 font-medium text-sm">
                           {visitor.name}
                         </td>
-                        <td className="px-3 md:px-6 py-4 text-sm">
+                        <td className="px-4 sm:px-6 py-4 text-sm">
                           <div className="text-gray-600">{visitor.email}</div>
                           <div className="text-gray-500">{visitor.mobile}</div>
                         </td>
-                        <td className="px-3 md:px-6 py-4 text-sm">{visitor.purpose}</td>
-                        <td className="px-3 md:px-6 py-4 text-sm">
+                        <td className="px-4 sm:px-6 py-4 text-sm">
+                          {visitor.purpose}
+                        </td>
+                        <td className="px-4 sm:px-6 py-4 text-sm">
                           {visitor.university?.name || "N/A"}
                         </td>
-                        <td className="px-3 md:px-6 py-4 text-sm">
+                        <td className="px-4 sm:px-6 py-4 text-sm">
                           {visitor.institute?.name || "N/A"}
                         </td>
-                        <td className="px-3 md:px-6 py-4 whitespace-nowrap text-sm">
+                        <td className="px-4 sm:px-6 py-4 text-sm whitespace-nowrap">
                           {new Date(visitor.createdAt).toLocaleDateString()}
                         </td>
-                        <td className="px-3 md:px-6 py-4">
+                        <td className="px-4 sm:px-6 py-4">
                           <button
                             className="text-red-500 hover:text-red-700 text-sm font-medium"
                             onClick={async () => {
                               if (
                                 window.confirm("Delete this visitor record?")
                               ) {
-                                await api.delete(
-                                  `/visitors/${visitor._id}`,
-                                  {
-                                    headers: {
-                                      "x-auth-token":
-                                        localStorage.getItem("token"),
-                                    },
-                                  }
-                                );
+                                await api.delete(`/visitors/${visitor._id}`, {
+                                  headers: {
+                                    "x-auth-token":
+                                      localStorage.getItem("token"),
+                                  },
+                                });
                                 setVisitors(
                                   visitors.filter((v) => v._id !== visitor._id)
                                 );
@@ -539,7 +725,7 @@ export default function SuperAdminDashboard() {
               </div>
             </div>
           )}
-          
+
           {activeTab === "universities" && (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 md:gap-8">
               <CreateUniversity setUniversities={setUniversities} />

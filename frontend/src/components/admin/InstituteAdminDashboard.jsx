@@ -4,6 +4,11 @@ import AddLocation from "./AddLocation.jsx";
 import AddPath from "./AddPath.jsx";
 import IndoorManagement from "./IndoorManagement.jsx";
 import api from "../../utils/api.js";
+import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, ArcElement } from 'chart.js';
+import { Bar, Pie } from 'react-chartjs-2';
+
+// Register Chart.js components
+ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, ArcElement);
 
 export default function InstituteAdminDashboard() {
   const [activeTab, setActiveTab] = useState("visitors");
@@ -13,8 +18,10 @@ export default function InstituteAdminDashboard() {
   const [institute, setInstitute] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [showMobileMenu, setShowMobileMenu] = useState(false);
   const navigate = useNavigate();
   const instituteId = localStorage.getItem("institute");
+  const [refreshLocations, setRefreshLocations] = useState(0);
 
   const handleLogout = () => {
     localStorage.removeItem("token");
@@ -56,8 +63,6 @@ export default function InstituteAdminDashboard() {
           { headers: { "x-auth-token": token } }
         );
         setPaths(pathsData);
-
-        // Fetch paths
 
         setInstitute(instituteData);
         setLocations(locationsData);
@@ -112,6 +117,65 @@ export default function InstituteAdminDashboard() {
     }
   };
 
+  // Prepare chart data
+  const prepareChartData = () => {
+    // Visitors by date
+    const visitorsByDate = visitors.reduce((acc, visitor) => {
+      const date = new Date(visitor.createdAt).toLocaleDateString();
+      acc[date] = (acc[date] || 0) + 1;
+      return acc;
+    }, {});
+
+    // Visitors by purpose
+    const visitorsByPurpose = visitors.reduce((acc, visitor) => {
+      const purpose = visitor.purpose || "Unknown";
+      acc[purpose] = (acc[purpose] || 0) + 1;
+      return acc;
+    }, {});
+
+    return {
+      dateData: {
+        labels: Object.keys(visitorsByDate),
+        datasets: [
+          {
+            label: "Visitors per Day",
+            data: Object.values(visitorsByDate),
+            backgroundColor: "rgba(59, 130, 246, 0.6)",
+            borderColor: "rgba(59, 130, 246, 1)",
+            borderWidth: 1,
+          },
+        ],
+      },
+      purposeData: {
+        labels: Object.keys(visitorsByPurpose),
+        datasets: [
+          {
+            data: Object.values(visitorsByPurpose),
+            backgroundColor: [
+              "rgba(255, 99, 132, 0.6)",
+              "rgba(54, 162, 235, 0.6)",
+              "rgba(255, 206, 86, 0.6)",
+              "rgba(75, 192, 192, 0.6)",
+              "rgba(153, 102, 255, 0.6)",
+              "rgba(255, 159, 64, 0.6)",
+            ],
+            borderColor: [
+              "rgba(255, 99, 132, 1)",
+              "rgba(54, 162, 235, 1)",
+              "rgba(255, 206, 86, 1)",
+              "rgba(75, 192, 192, 1)",
+              "rgba(153, 102, 255, 1)",
+              "rgba(255, 159, 64, 1)",
+            ],
+            borderWidth: 1,
+          },
+        ],
+      },
+    };
+  };
+
+  const chartData = visitors.length > 0 ? prepareChartData() : null;
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 to-gray-100 flex items-center justify-center">
@@ -143,28 +207,28 @@ export default function InstituteAdminDashboard() {
       count: locations.length,
     },
     { id: "routes", label: "Routes", icon: "🛣️", count: paths.length },
-    { id: "indoor", label: "Indoor Nav", icon: "🏢" }, // New routes tab
+    { id: "indoor", label: "Indoor Nav", icon: "🏢" },
   ];
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-gray-100">
       {/* Header Section - College/Institute Info */}
       <div className="bg-white border-b border-gray-200 shadow-sm">
-        <div className="max-w-7xl mx-auto px-6 py-6">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4">
           <div className="flex items-center justify-between">
             {/* Left: Institute Info */}
-            <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-3">
               {/* University Logo */}
               <div className="flex-shrink-0">
                 {institute?.university?.logo ? (
                   <img
                     src={institute.university.logo}
                     alt="University Logo"
-                    className="h-16 w-16 object-contain rounded-xl border-2 border-gray-100 shadow-sm"
+                    className="h-12 w-12 md:h-16 md:w-16 object-contain rounded-xl border-2 border-gray-100 shadow-sm"
                   />
                 ) : (
-                  <div className="h-16 w-16 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-sm">
-                    <span className="text-white text-2xl font-bold">
+                  <div className="h-12 w-12 md:h-16 md:w-16 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-sm">
+                    <span className="text-white text-xl md:text-2xl font-bold">
                       {institute?.name?.charAt(0) || "I"}
                     </span>
                   </div>
@@ -173,34 +237,95 @@ export default function InstituteAdminDashboard() {
 
               {/* Institute Details */}
               <div className="min-w-0 flex-1">
-                <h1 className="text-2xl font-bold text-gray-900 truncate">
+                <h1 className="text-xl md:text-2xl font-bold text-gray-900 truncate">
                   {institute?.name || "Institute Dashboard"}
                 </h1>
-                <p className="text-lg font-medium text-gray-700 truncate">
+                <p className="text-base md:text-lg font-medium text-gray-700 truncate">
                   {institute?.university?.name || "University"}
                 </p>
-                {institute?.university?.address && (
-                  <p className="text-sm text-gray-500 truncate">
-                    📍 {institute.university.address}
-                  </p>
-                )}
               </div>
             </div>
 
-            {/* Right: Logout Button */}
-            <button
-              onClick={handleLogout}
-              className="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-lg font-medium hover:from-red-600 hover:to-red-700 transition-all duration-200 shadow-md hover:shadow-lg"
-            >
-              <span>🚪</span>
-              <span>Logout</span>
-            </button>
+            {/* Right: Logout Button and Mobile Menu */}
+            <div className="flex items-center space-x-3">
+              {/* Mobile Menu Button */}
+              <button
+                onClick={() => setShowMobileMenu(!showMobileMenu)}
+                className="md:hidden text-gray-500 hover:text-gray-700"
+              >
+                <svg
+                  className="h-6 w-6"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M4 6h16M4 12h16M4 18h16"
+                  />
+                </svg>
+              </button>
+
+              {/* Logout Button */}
+              <button
+                onClick={handleLogout}
+                className="hidden md:flex items-center space-x-2 px-3 py-1.5 md:px-4 md:py-2 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-lg font-medium hover:from-red-600 hover:to-red-700 transition-all duration-200 shadow-md hover:shadow-lg text-sm md:text-base"
+              >
+                <span>🚪</span>
+                <span className="hidden sm:inline">Logout</span>
+              </button>
+            </div>
           </div>
         </div>
       </div>
 
+      {/* Mobile Menu */}
+      {showMobileMenu && (
+        <div className="md:hidden bg-white border-b border-gray-200 shadow-md">
+          <div className="max-w-7xl mx-auto px-4 py-3">
+            <div className="flex flex-col space-y-2">
+              {tabs.map((tab) => (
+                <button
+                  key={tab.id}
+                  onClick={() => {
+                    setActiveTab(tab.id);
+                    setShowMobileMenu(false);
+                  }}
+                  className={`flex items-center space-x-2 py-2 px-3 rounded-lg text-left ${
+                    activeTab === tab.id
+                      ? "bg-blue-50 text-blue-600"
+                      : "text-gray-700 hover:bg-gray-50"
+                  }`}
+                >
+                  <span className="text-lg">{tab.icon}</span>
+                  <span>{tab.label}</span>
+                  <span
+                    className={`ml-auto inline-flex items-center justify-center px-2 py-1 text-xs font-bold rounded-full ${
+                      activeTab === tab.id
+                        ? "bg-blue-100 text-blue-800"
+                        : "bg-gray-100 text-gray-600"
+                    }`}
+                  >
+                    {tab.count}
+                  </span>
+                </button>
+              ))}
+              <button
+                onClick={handleLogout}
+                className="flex items-center space-x-2 py-2 px-3 rounded-lg bg-gradient-to-r from-red-500 to-red-600 text-white font-medium"
+              >
+                <span>🚪</span>
+                <span>Logout</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Tab Navigation */}
-      <div className="bg-white border-b border-gray-200">
+      <div className="bg-white border-b border-gray-200 hidden md:block">
         <div className="max-w-7xl mx-auto px-6">
           <nav className="flex space-x-8" aria-label="Tabs">
             {tabs.map((tab) => (
@@ -237,7 +362,7 @@ export default function InstituteAdminDashboard() {
       </div>
 
       {/* Main Content Area */}
-      <div className="max-w-7xl mx-auto px-6 py-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6">
         {/* Error Display */}
         {error && (
           <div className="mb-6 p-4 bg-red-50 border border-red-200 text-red-700 rounded-xl flex items-center space-x-3">
@@ -252,7 +377,7 @@ export default function InstituteAdminDashboard() {
           {activeTab === "visitors" && (
             <div className="bg-white rounded-2xl shadow-lg">
               {/* Tab Header */}
-              <div className="px-6 py-4 border-b border-gray-200">
+              <div className="px-4 sm:px-6 py-4 border-b border-gray-200">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-3">
                     <span className="text-2xl">👥</span>
@@ -274,6 +399,54 @@ export default function InstituteAdminDashboard() {
                 </div>
               </div>
 
+              {/* Visitor Charts */}
+              {visitors.length > 0 && chartData && (
+                <div className="p-4 sm:p-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  <div className="bg-gray-50 p-4 rounded-xl">
+                    <h3 className="text-lg font-semibold text-gray-800 mb-4">
+                      Visitors by Date
+                    </h3>
+                    <div className="h-64">
+                      <Bar
+                        data={chartData.dateData}
+                        options={{
+                          responsive: true,
+                          maintainAspectRatio: false,
+                          plugins: {
+                            legend: {
+                              position: "top",
+                            },
+                            title: {
+                              display: true,
+                              text: "Visitors per Day",
+                            },
+                          },
+                        }}
+                      />
+                    </div>
+                  </div>
+                  <div className="bg-gray-50 p-4 rounded-xl">
+                    <h3 className="text-lg font-semibold text-gray-800 mb-4">
+                      Visitors by Purpose
+                    </h3>
+                    <div className="h-64">
+                      <Pie
+                        data={chartData.purposeData}
+                        options={{
+                          responsive: true,
+                          maintainAspectRatio: false,
+                          plugins: {
+                            legend: {
+                              position: "right",
+                            },
+                          },
+                        }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Visitors Table */}
               <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-gray-200">
@@ -288,7 +461,7 @@ export default function InstituteAdminDashboard() {
                       ].map((header) => (
                         <th
                           key={header}
-                          className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider"
+                          className="px-4 sm:px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider"
                         >
                           {header}
                         </th>
@@ -301,21 +474,21 @@ export default function InstituteAdminDashboard() {
                         key={visitor._id}
                         className="hover:bg-gray-50 transition-colors"
                       >
-                        <td className="px-6 py-4">
+                        <td className="px-4 sm:px-6 py-4">
                           <div className="font-medium text-gray-900">
                             {visitor.name}
                           </div>
                         </td>
-                        <td className="px-6 py-4">
+                        <td className="px-4 sm:px-6 py-4">
                           <div className="text-gray-600">{visitor.email}</div>
                           <div className="text-sm text-gray-500">
                             {visitor.mobile}
                           </div>
                         </td>
-                        <td className="px-6 py-4 text-gray-600">
+                        <td className="px-4 sm:px-6 py-4 text-gray-600">
                           {visitor.purpose}
                         </td>
-                        <td className="px-6 py-4 text-gray-600 whitespace-nowrap">
+                        <td className="px-4 sm:px-6 py-4 text-gray-600 whitespace-nowrap">
                           {new Date(visitor.createdAt).toLocaleDateString(
                             "en-US",
                             {
@@ -325,7 +498,7 @@ export default function InstituteAdminDashboard() {
                             }
                           )}
                         </td>
-                        <td className="px-6 py-4">
+                        <td className="px-4 sm:px-6 py-4">
                           <button
                             className="text-red-500 hover:text-red-700 font-medium transition-colors"
                             onClick={() => {
@@ -362,17 +535,20 @@ export default function InstituteAdminDashboard() {
 
           {/* Locations Tab */}
           {activeTab === "locations" && (
-            <div className="space-y-8">
+            <div className="space-y-6">
               {/* Add Location Form */}
               <AddLocation
                 instituteId={instituteId}
-                setLocations={setLocations}
+                onLocationAdded={(newLocation) =>
+                  setLocations((prev) => [...prev, newLocation])
+                }
+                refreshLocations={() => setRefreshLocations((prev) => prev + 1)}
               />
 
               {/* Locations List */}
               <div className="bg-white rounded-2xl shadow-lg">
                 {/* Tab Header */}
-                <div className="px-6 py-4 border-b border-gray-200">
+                <div className="px-4 sm:px-6 py-4 border-b border-gray-200">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-3">
                       <span className="text-2xl">📍</span>
@@ -395,9 +571,9 @@ export default function InstituteAdminDashboard() {
                 </div>
 
                 {/* Locations Grid */}
-                <div className="p-6">
+                <div className="p-4 sm:p-6">
                   {locations.length > 0 ? (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
                       {locations.map((location) => (
                         <div
                           key={location._id}
@@ -405,7 +581,7 @@ export default function InstituteAdminDashboard() {
                         >
                           {/* Location Image */}
                           {location.image ? (
-                            <div className="mb-4 h-48 rounded-lg overflow-hidden">
+                            <div className="mb-4 h-40 sm:h-48 rounded-lg overflow-hidden">
                               <img
                                 src={location.image}
                                 alt={location.name}
@@ -413,7 +589,7 @@ export default function InstituteAdminDashboard() {
                               />
                             </div>
                           ) : (
-                            <div className="mb-4 h-48 rounded-lg bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center">
+                            <div className="mb-4 h-40 sm:h-48 rounded-lg bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center">
                               <span className="text-gray-400 text-4xl">🏢</span>
                             </div>
                           )}
@@ -482,8 +658,9 @@ export default function InstituteAdminDashboard() {
             </div>
           )}
 
+          {/* Routes Tab */}
           {activeTab === "routes" && (
-            <div className="space-y-8">
+            <div className="space-y-6">
               {/* Add Path Form */}
               <AddPath
                 instituteId={instituteId}
@@ -493,7 +670,7 @@ export default function InstituteAdminDashboard() {
 
               {/* Paths List */}
               <div className="bg-white rounded-2xl shadow-lg">
-                <div className="px-6 py-4 border-b border-gray-200">
+                <div className="px-4 sm:px-6 py-4 border-b border-gray-200">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-3">
                       <span className="text-2xl">🛣️</span>
@@ -515,28 +692,28 @@ export default function InstituteAdminDashboard() {
                   </div>
                 </div>
 
-                <div className="p-6">
+                <div className="p-4 sm:p-6">
                   {paths.length > 0 ? (
                     <div className="overflow-x-auto">
                       <table className="min-w-full divide-y divide-gray-200">
                         <thead className="bg-gray-50">
                           <tr>
-                            <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                            <th className="px-4 sm:px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
                               From
                             </th>
-                            <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                            <th className="px-4 sm:px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
                               To
                             </th>
-                            <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                            <th className="px-4 sm:px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
                               Distance
                             </th>
-                            <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                            <th className="px-4 sm:px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
                               Time
                             </th>
-                            <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                            <th className="px-4 sm:px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
                               Accessibility
                             </th>
-                            <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                            <th className="px-4 sm:px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
                               Actions
                             </th>
                           </tr>
@@ -544,23 +721,23 @@ export default function InstituteAdminDashboard() {
                         <tbody className="bg-white divide-y divide-gray-200">
                           {paths.map((path) => (
                             <tr key={path._id} className="hover:bg-gray-50">
-                              <td className="px-6 py-4 text-gray-900 font-medium">
+                              <td className="px-4 sm:px-6 py-4 text-gray-900 font-medium">
                                 {path.fromName}
                               </td>
-                              <td className="px-6 py-4 text-gray-900 font-medium">
+                              <td className="px-4 sm:px-6 py-4 text-gray-900 font-medium">
                                 {path.toName}
                               </td>
-                              <td className="px-6 py-4 text-gray-600">
+                              <td className="px-4 sm:px-6 py-4 text-gray-600">
                                 {path.distance
                                   ? `${path.distance.toFixed(2)} meters`
                                   : "N/A"}
                               </td>
-                              <td className="px-6 py-4 text-gray-600">
+                              <td className="px-4 sm:px-6 py-4 text-gray-600">
                                 {path.estimatedTime
                                   ? `${path.estimatedTime} mins`
                                   : "N/A"}
                               </td>
-                              <td className="px-6 py-4">
+                              <td className="px-4 sm:px-6 py-4">
                                 <span
                                   className={`px-2 py-1 rounded-full text-xs font-medium ${
                                     path.accessibilityFriendly
@@ -571,7 +748,7 @@ export default function InstituteAdminDashboard() {
                                   {path.accessibilityFriendly ? "Yes" : "No"}
                                 </span>
                               </td>
-                              <td className="px-6 py-4">
+                              <td className="px-4 sm:px-6 py-4">
                                 <button
                                   className="text-red-500 hover:text-red-700 font-medium transition-colors"
                                   onClick={() => {
@@ -604,6 +781,7 @@ export default function InstituteAdminDashboard() {
             </div>
           )}
 
+          {/* Indoor Navigation Tab */}
           {activeTab === "indoor" && (
             <IndoorManagement instituteId={instituteId} />
           )}
