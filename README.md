@@ -81,27 +81,15 @@ JWT_EXPIRE=30d
 NODE_ENV=production
 
 # For offline image storage (remove Cloudinary)
-# CLOUDINARY_CLOUD_NAME= 
-# CLOUDINARY_API_KEY=
-# CLOUDINARY_API_SECRET=
+CLOUDINARY_CLOUD_NAME= 
+CLOUDINARY_API_KEY=
+CLOUDINARY_API_SECRET=
 
 # Set to your domain or server IP
 CORS_ORIGINS=http://your-server-ip,http://localhost
 ```
 ### Database Setup:
-1. Install MongoDB
-2. Start MongoDB service:
-   ```bash
-   sudo systemctl start mongod
-   sudo systemctl enable mongod
-   ```
-3. Create database:
-   ```bash
-   mongo
-   > use ar_nav_db
-   > db.createUser({user: "admin", pwd: "securepassword", roles: ["readWrite", "dbAdmin"]})
-   ```
-Update MONGODB_URI in .env:
+Update MONGODB_URI in .env put your local url:
 ```bash
 MONGODB_URI=mongodb://admin:securepassword@localhost:27017/ar_nav_db?authSource=ar_nav_db
 ```
@@ -113,9 +101,15 @@ cd frontend
 npm install
 ```
 ### Create .env file:
+Put /api in frontend of backend url
 ```env
 VITE_API_URL=http://your-server-ip:5000/api
 ```
+
+### Important:
+Also update the URL in the navigation.html and indoor.html, put the backend url (the same as VITE_API_URL=http://your-server-ip:5000/api) as they are hardcoded
+Line 1393 in navigation.html
+Line 1060 in indoor.html(only till api part)
 
 ### Build production version:
 ```env
