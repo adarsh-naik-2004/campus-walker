@@ -45,7 +45,79 @@ This system provides real-time wayfinding that transitions smoothly between outd
 - Configure system-wide policies and alerts
 
 
+# AR Navigation System - Deployment Guide
 
-**Architecture & Design:**
-- 📊 [System Architecture Diagram](https://github.com/adarsh-naik-2004/ar-nav-system/blob/main/public/system_architecture.png)
-- 🗃️ [ER Diagram & Database Schema](https://github.com/adarsh-naik-2004/ar-nav-system/blob/main/public/er-diagram.png)
+This guide provides instructions for deploying the AR Navigation System on a custom server with offline database support.
+
+## Prerequisites
+- Node.js v18+ (LTS recommended)
+- MongoDB Community Edition v6+
+- npm v9+
+- Git
+- Cloudinary account (for image storage) - *optional for offline mode*
+
+## 1. Server Setup
+### Clone the repository:
+```bash
+git clone https://github.com/adarsh-naik-2004/ar-nav-system.git
+cd ar-nav-system
+```
+
+## 2. Backend Configuration
+### Install dependencies:
+```bash
+cd backend
+npm install
+```
+
+### Create .env file:
+Update .env with local settings:
+```env
+PORT=5000
+# Use local MongoDB instead of Atlas
+MONGODB_URI=mongodb://localhost:27017/ar_nav_db
+JWT_SECRET=your_strong_secret_key_here
+JWT_EXPIRE=30d
+NODE_ENV=production
+
+# For offline image storage (remove Cloudinary)
+# CLOUDINARY_CLOUD_NAME= 
+# CLOUDINARY_API_KEY=
+# CLOUDINARY_API_SECRET=
+
+# Set to your domain or server IP
+CORS_ORIGINS=http://your-server-ip,http://localhost
+```
+### Database Setup:
+1. Install MongoDB
+2. Start MongoDB service:
+   ```bash
+   sudo systemctl start mongod
+   sudo systemctl enable mongod
+   ```
+3. Create database:
+   ```bash
+   mongo
+   > use ar_nav_db
+   > db.createUser({user: "admin", pwd: "securepassword", roles: ["readWrite", "dbAdmin"]})
+   ```
+Update MONGODB_URI in .env:
+```bash
+MONGODB_URI=mongodb://admin:securepassword@localhost:27017/ar_nav_db?authSource=ar_nav_db
+```
+
+3. Frontend Configuration
+### Install dependencies:
+```bash
+cd frontend
+npm install
+```
+### Create .env file:
+```env
+VITE_API_URL=http://your-server-ip:5000/api
+```
+
+### Build production version:
+```env
+npm run build
+```
