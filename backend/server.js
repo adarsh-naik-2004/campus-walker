@@ -16,8 +16,13 @@ const app = express();
 
 // Middleware
 // Update CORS middleware
+
+const allowedOrigins = process.env.CORS_ORIGINS 
+  ? process.env.CORS_ORIGINS.split(',') 
+  : [];
+
 app.use(cors({
-  origin: ['http://localhost:5173', 'https://ar-nav-system.vercel.app'],
+  origin: allowedOrigins,
   credentials: true,
   allowedHeaders: ['Content-Type', 'Authorization', 'x-auth-token'],
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS']
