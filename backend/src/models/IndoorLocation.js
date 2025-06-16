@@ -7,7 +7,7 @@ const indoorLocationSchema = new mongoose.Schema({
   floor: { type: Number, required: true },
   x: { type: Number, required: true }, // X position on floor plan
   y: { type: Number, required: true }, // Y position on floor plan
-  category: { type: String, enum: ['room', 'stair', 'elevator', 'entrance'] },
+  category: { type: String, enum: ['room', 'stair', 'elevator', 'entrance', 'turn'] },
   institute: { type: mongoose.Schema.Types.ObjectId, ref: 'Institute', required: true },
 });
 

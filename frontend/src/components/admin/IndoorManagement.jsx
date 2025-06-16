@@ -398,6 +398,7 @@ export default function IndoorManagement({ instituteId }) {
                 }
               >
                 <option value="room">Room</option>
+                <option value="turn">Turn Node</option>
                 <option value="stair">Staircase</option>
                 <option value="elevator">Elevator</option>
                 <option value="entrance">Entrance</option>
