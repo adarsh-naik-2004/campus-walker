@@ -3,6 +3,9 @@ import User from "../models/User.js";
 import Institute from "../models/Institute.js";
 import Path from "../models/Path.js";
 import path from 'path';
+import dotenv from 'dotenv';
+
+dotenv.config();
 
 export const getInstituteById = async (req, res) => {
   try {
@@ -40,7 +43,7 @@ export const addLocation = async (req, res) => {
     let imageUrl = '';
 
     if (req.file) {
-      const baseUrl = `${req.protocol}://${req.get('host')}`;
+      const baseUrl = process.env.BASE_URL;
       imageUrl = `${baseUrl}/uploads/locations/${req.file.filename}`;
     }
 

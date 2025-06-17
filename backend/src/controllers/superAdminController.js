@@ -2,13 +2,16 @@ import University from '../models/University.js';
 import User from '../models/User.js';
 import bcrypt from 'bcryptjs';
 import path from 'path';
+import dotenv from 'dotenv';
+
+dotenv.config();
 
 export const createUniversity = async (req, res) => {
   try {
     let logoUrl = null;
 
     if (req.file) {
-      const baseUrl = `${req.protocol}://${req.get('host')}`;
+      const baseUrl = process.env.BASE_URL;
       logoUrl = `${baseUrl}/uploads/university-logos/${req.file.filename}`;
     }
 
@@ -27,6 +30,7 @@ export const createUniversity = async (req, res) => {
     });
   }
 };
+
 
 export const createUniversityAdmin = async (req, res) => {
   try {
