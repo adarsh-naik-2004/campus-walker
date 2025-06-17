@@ -10,8 +10,6 @@ import visitorRoutes from './src/routes/visitorRoutes.js';
 import { getUniversities } from './src/controllers/universityController.js';
 import navigationRoutes from './src/routes/navigation.js';
 import indoorRoutes from './src/routes/indoor.js';
-import User from './src/models/User.js';
-import bcrypt from 'bcryptjs';
 
 dotenv.config();
 const app = express();
@@ -34,20 +32,6 @@ app.use(express.urlencoded({ extended: true }));
 
 // Connect to MongoDB
 connectDB();
-
-const createDummyAdmin = async () => {
-  const exists = await User.findOne({ email: 'super@admin.com' });
-  if (!exists) {
-    await User.create({
-      email: 'super@admin.com',
-      password: bcrypt.hashSync('admin123', 10),
-      role: 'super'
-    });
-    console.log('Dummy super admin created');
-  }
-};
-createDummyAdmin();
-
 
 // Routes
 app.use('/api/auth', authRoutes);
