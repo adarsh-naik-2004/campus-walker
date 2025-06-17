@@ -39,7 +39,7 @@ export default function AddPath({ instituteId, locations, setPaths }) {
       setFormData({
         from: "",
         to: "",
-        accessibilityFriendly: false,
+        accessibilityFriendly: true,
       });
     } catch (error) {
       toast.error(error.response?.data?.message || "Error adding route");

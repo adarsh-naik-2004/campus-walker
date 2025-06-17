@@ -98,15 +98,15 @@ const locationSchema = new mongoose.Schema({
   accessibility: {
     wheelchairAccessible: {
       type: Boolean,
-      default: false
+      default: true
     },
     elevatorAccess: {
       type: Boolean,
-      default: false
+      default: true
     },
     rampAccess: {
       type: Boolean,
-      default: false
+      default: true
     }
   }
 }, { 

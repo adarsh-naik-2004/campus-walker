@@ -12,7 +12,7 @@ const pathSchema = new mongoose.Schema({
   }],
   distance: Number,
   estimatedTime: Number,
-  accessibilityFriendly: { type: Boolean, default: false }
+  accessibilityFriendly: { type: Boolean, default: true }
 }, { timestamps: true });
 
 export default mongoose.model('Path', pathSchema);
