@@ -5,16 +5,16 @@ import path from 'path';
 
 export const createUniversity = async (req, res) => {
   try {
-    let logoPath = null;
+    let logoUrl = null;
 
     if (req.file) {
-      // Path relative to public/static access
-      logoPath = path.join('/uploads/university-logos', req.file.filename);
+      const baseUrl = `${req.protocol}://${req.get('host')}`;
+      logoUrl = `${baseUrl}/uploads/university-logos/${req.file.filename}`;
     }
 
     const university = new University({
       name: req.body.name,
-      logo: logoPath
+      logo: logoUrl
     });
 
     await university.save();

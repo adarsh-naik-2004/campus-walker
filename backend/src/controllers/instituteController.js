@@ -40,7 +40,8 @@ export const addLocation = async (req, res) => {
     let imageUrl = '';
 
     if (req.file) {
-      imageUrl = path.join('/uploads/locations', req.file.filename);
+      const baseUrl = `${req.protocol}://${req.get('host')}`;
+      imageUrl = `${baseUrl}/uploads/locations/${req.file.filename}`;
     }
 
     const institute = await Institute.findById(instituteId).populate('university');
