@@ -1,34 +1,27 @@
 import University from '../models/University.js';
 import User from '../models/User.js';
 import bcrypt from 'bcryptjs';
-import cloudinary from '../config/cloudinary.js';
+import path from 'path';
 
 export const createUniversity = async (req, res) => {
   try {
-    if (!req.file) {
-      return res.status(400).json({ message: 'No logo file uploaded' });
+    let logoPath = null;
+
+    if (req.file) {
+      // Path relative to public/static access
+      logoPath = path.join('/uploads/university-logos', req.file.filename);
     }
-
-    // Convert buffer to base64 for Cloudinary
-    const b64 = Buffer.from(req.file.buffer).toString("base64");
-    const dataURI = "data:" + req.file.mimetype + ";base64," + b64;
-
-    // Upload to Cloudinary
-    const result = await cloudinary.uploader.upload(dataURI, {
-      folder: 'university-logos',
-      resource_type: 'auto'
-    });
 
     const university = new University({
       name: req.body.name,
-      logo: result.secure_url
+      logo: logoPath
     });
 
     await university.save();
     res.status(201).json(university);
   } catch (err) {
     console.error('University creation error:', err);
-    res.status(500).json({ 
+    res.status(500).json({
       message: 'Server error',
       error: err.message
     });

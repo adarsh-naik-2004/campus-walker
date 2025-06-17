@@ -12,7 +12,7 @@ import {
   deleteUniversityAdmin,
   deleteSuperAdmin,
 } from "../controllers/superAdminController.js";
-import upload from "../utils/upload.js";
+import uploadUniversityLogo from "../middleware/uploadUniversityLogo.js";
 
 const router = express.Router();
 
@@ -22,7 +22,7 @@ router.post(
   "/universities",
   auth,
   requireRole("super"),
-  upload.single("logo"),
+  uploadUniversityLogo.single("logo"),
   createUniversity
 );
 router.delete(

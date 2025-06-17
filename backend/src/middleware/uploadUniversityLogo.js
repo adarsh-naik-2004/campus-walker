@@ -1,8 +1,8 @@
+// src/middleware/uploadUniversityLogo.js
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
 
-// Create upload directory if not exists
 const uploadDir = 'uploads/university-logos';
 if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir, { recursive: true });
@@ -18,18 +18,14 @@ const storage = multer.diskStorage({
   }
 });
 
-const upload = multer({
-  storage: storage,
-  fileFilter: function (req, file, cb) {
+const uploadUniversityLogo = multer({
+  storage,
+  fileFilter: (req, file, cb) => {
     const filetypes = /jpeg|jpg|png|gif/;
-    const mimetype = filetypes.test(file.mimetype);
-    const extname = filetypes.test(path.extname(file.originalname).toLowerCase());
-    if (mimetype && extname) {
-      return cb(null, true);
-    }
-    cb(new Error('Only image files are allowed!'));
+    const isValid = filetypes.test(file.mimetype) && filetypes.test(path.extname(file.originalname).toLowerCase());
+    isValid ? cb(null, true) : cb(new Error('Only image files are allowed!'));
   },
-  limits: { fileSize: 5 * 1024 * 1024 } // 5 MB
+  limits: { fileSize: 5 * 1024 * 1024 }
 });
 
-export default upload;
+export default uploadUniversityLogo;

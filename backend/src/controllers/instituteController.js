@@ -2,7 +2,7 @@ import Location from "../models/Location.js";
 import User from "../models/User.js";
 import Institute from "../models/Institute.js";
 import Path from "../models/Path.js";
-import cloudinary from "../config/cloudinary.js";
+import path from 'path';
 
 export const getInstituteById = async (req, res) => {
   try {
@@ -36,25 +36,17 @@ export const getBuildings = async (req, res) => {
 
 export const addLocation = async (req, res) => {
   try {
-    const { name, description, floor, category, instituteId, coordinates } =
-      req.body;
-    let imageUrl = "";
+    const { name, description, floor, category, instituteId, coordinates } = req.body;
+    let imageUrl = '';
 
     if (req.file) {
-      const result = await cloudinary.uploader.upload(
-        `data:${req.file.mimetype};base64,${req.file.buffer.toString(
-          "base64"
-        )}`,
-        { folder: "ar-nav/locations" }
-      );
-      imageUrl = result.secure_url;
+      imageUrl = path.join('/uploads/locations', req.file.filename);
     }
 
-    const institute = await Institute.findById(instituteId).populate(
-      "university"
-    );
-    if (!institute)
-      return res.status(404).json({ message: "Institute not found" });
+    const institute = await Institute.findById(instituteId).populate('university');
+    if (!institute) {
+      return res.status(404).json({ message: 'Institute not found' });
+    }
 
     const location = new Location({
       name,
@@ -74,8 +66,8 @@ export const addLocation = async (req, res) => {
     await location.save();
     res.status(201).json(location);
   } catch (err) {
-    console.error("Error adding location:", err);
-    res.status(500).json({ message: "Server error" });
+    console.error('Error adding location:', err);
+    res.status(500).json({ message: 'Server error' });
   }
 };
 

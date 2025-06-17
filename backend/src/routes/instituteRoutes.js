@@ -16,8 +16,7 @@ import {
 } from "../controllers/instituteController.js";
 import { auth } from "../middleware/auth.js";
 import { requireRole } from "../middleware/role.js";
-import upload from "../config/upload.js"; 
-
+import uploadLocation from "../middleware/uploadLocation.js";
 const router = express.Router();
 
 router.get('/:id', getInstituteById);
@@ -26,7 +25,7 @@ router.post(
   "/locations", 
   auth, 
   requireRole("institute"), 
-  upload.single('image'), 
+  uploadLocation.single('image'), 
   addLocation
 );
 router.get("/locations", auth, getLocations);
