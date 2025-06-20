@@ -721,11 +721,11 @@
         <div id="campus-map"></div>
       </div>
 
-      <div id="debug-panel">
+      <!-- <div id="debug-panel">
         <div><strong>Debug Information</strong></div>
         <div id="debug-info">Loading...</div>
       </div>
-    </div>
+    </div> -->
 
     <script>
       let CAMPUS_NODES = {};
@@ -752,13 +752,7 @@
         toilet: "🚻",
         garden: "🌳",
       };
-      let userPosition = {
-        lat: 21.28912,
-        lng: 81.700358,
-        accuracy: 5,
-        heading: 0,
-        speed: 0,
-      };
+      let userPosition = {};
 
       let userHeading = 0;
       let selectedDestination = null;
@@ -1287,7 +1281,7 @@
         }
 
         // Draw route if navigating
-        if (isNavigating && currentRoute.length > 1) {
+        if (isNavigating && currentRoute.length > 0) {
           const routePoints = [];
           for (let i = 0; i < currentRoute.length; i++) {
             const nodeId = currentRoute[i];
@@ -1302,6 +1296,7 @@
               color: "#4CAF50",
               weight: 6,
               dashArray: "5, 10",
+              zIndexOffset: 1000,
             }).addTo(campusMap);
           }
         }
@@ -1390,7 +1385,7 @@
 
       async function fetchCampusData(instituteId) {
         try {
-          const url = "https://ar-nav-system.onrender.com/api";
+          const url = "http://localhost:5000/api";
           // Fetch locations
           const locationsRes = await fetch(
             `${url}/institute/${instituteId}/locations`
@@ -1491,7 +1486,7 @@
 
         currentRoute = calculateRoute();
         createPathArrows();
-
+        renderCampusMap();
         updateNavigation();
       }
 
