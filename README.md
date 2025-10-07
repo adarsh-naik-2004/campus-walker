@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-The **Development of a Hybrid AR Navigation System for Indoor–Outdoor Campus Wayfinding with Multi-level Building Support** is a comprehensive 4-week internship project that revolutionizes campus navigation by seamlessly blending physical campus geography with augmented reality (AR) overlays.
+The **Development of a Hybrid AR Navigation System for Indoor–Outdoor Campus Wayfinding with Multi-level Building Support** is a comprehensive internship project that revolutionizes campus navigation by seamlessly blending physical campus geography with augmented reality (AR) overlays.
 
 
 # AR Navigation System - Deployment Guide
