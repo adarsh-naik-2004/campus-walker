@@ -171,32 +171,19 @@ You shared strong UI references; below is the recommended placement for a polish
 ### 1) Location Coordinate Picker (Map)
 Great for showing route/location setup workflow.
 
-![Location Selection Map](docs/images/location-selection-map.jpg)
+![node-add](https://github.com/user-attachments/assets/b3f1770c-80ae-4859-97b1-514d31a5b5a2)
+
 
 ### 2) Outdoor AR Navigation (Mobile View)
 Best for demonstrating real-world guidance UI.
 
-![Outdoor AR Navigation](docs/images/outdoor-ar-mobile.jpg)
+![outdoor](https://github.com/user-attachments/assets/c01b4550-f8c4-4dd0-9277-5ef74395b8ad)
+
 
 ### 3) Route Creation Form
 Use this to explain route authoring for institute admins.
 
-![Add New Route Form](docs/images/add-route-form.jpg)
-
-### 4) Super Admin Analytics Dashboard
-Highlights global visibility and analytics.
-
-![Super Admin Dashboard](docs/images/super-admin-dashboard.jpg)
-
-### 5) University Admin Dashboard
-Shows university-level operational view.
-
-![University Dashboard](docs/images/university-dashboard.jpg)
-
-### 6) Add New Location Form
-Useful for documenting location creation flow.
-
-![Add New Location Form](docs/images/add-location-form.jpg)
+<img width="1918" height="870" alt="route-add" src="https://github.com/user-attachments/assets/98479253-d1f4-4543-b2f9-14db70d7a7c5" />
 
 ---
 
